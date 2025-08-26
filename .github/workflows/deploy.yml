@@ -1,0 +1,40 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run tests
+        run: |
+          docker-compose up -d --build
+          docker-compose exec -T users python manage.py recreate_db
+          docker-compose exec -T users python manage.py test
+          docker-compose down
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to production
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: |
+          # Create production env file
+          echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" > .env.prod
+          echo "SECRET_KEY=$SECRET_KEY" >> .env.prod
+          echo "FLASK_ENV=production" >> .env.prod
+          
+          # Deploy
+          ./scripts/deploy.sh production

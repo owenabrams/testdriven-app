@@ -1,0 +1,51 @@
+# Docker Compose file for development
+
+services:
+  users:
+    build:
+      context: ./services/users
+      dockerfile: Dockerfile
+    volumes:
+      - './services/users:/usr/src/app'
+    expose:
+      - 5000
+    ports:
+      - 5001:5000
+    environment:
+      - FLASK_ENV=development
+      - APP_SETTINGS=project.config.DevelopmentConfig
+      - DATABASE_URL=postgresql://postgres:postgres@users-db:5432/users_dev
+      - DATABASE_TEST_URL=postgresql://postgres:postgres@users-db:5432/users_test
+    depends_on:
+      users-db:
+        condition: service_healthy
+
+  users-db:
+    image: postgres:15-alpine
+    ports:
+      - 5435:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=users_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./services/users/project/db/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d users_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    build:
+      context: ./services/nginx
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - 80:80
+    depends_on:
+      - users
+
+volumes:
+  postgres_data:

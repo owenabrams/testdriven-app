@@ -1,0 +1,43 @@
+# Multi-stage build for production
+FROM python:3.11-alpine as builder
+
+# Install build dependencies
+RUN apk update && \
+    apk add --virtual build-deps gcc python3-dev musl-dev postgresql-dev
+
+WORKDIR /usr/src/app
+
+# Install Python dependencies
+COPY ./requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Production stage
+FROM python:3.11-alpine
+
+# Install runtime dependencies only
+RUN apk update && \
+    apk add postgresql-dev && \
+    rm -rf /var/cache/apk/*
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+WORKDIR /usr/src/app
+
+# Copy Python packages from builder stage
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY . .
+
+# Change ownership to non-root user
+RUN chown -R appuser:appgroup /usr/src/app
+
+USER appuser
+
+EXPOSE 5000
+
+# Use gunicorn for production
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "project:app"]
