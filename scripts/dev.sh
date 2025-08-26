@@ -22,7 +22,31 @@ case "$1" in
     ;;
   "test")
     echo "🧪 Running tests..."
+    docker-compose exec users python manage.py recreate_db
     docker-compose exec users python manage.py test
+    ;;
+  "test-cov")
+    echo "🧪 Running tests with coverage..."
+    docker-compose exec users python manage.py recreate_db
+    docker-compose exec users python manage.py cov
+    ;;
+  "lint")
+    echo "🔍 Running linter..."
+    docker-compose exec users python manage.py lint
+    ;;
+  "format")
+    echo "🎨 Formatting code..."
+    docker-compose exec users python manage.py format-code
+    ;;
+  "format-check")
+    echo "🔍 Checking code formatting..."
+    docker-compose exec users python manage.py format-check
+    ;;
+  "quality")
+    echo "🔍 Running all quality checks..."
+    docker-compose exec users python manage.py lint
+    docker-compose exec users python manage.py format-check
+    echo "✅ All quality checks complete!"
     ;;
   "shell")
     echo "🐚 Opening shell in users container..."

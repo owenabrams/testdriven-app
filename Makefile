@@ -37,6 +37,25 @@ test:
 	docker-compose exec users python manage.py recreate_db
 	docker-compose exec users python manage.py test
 
+# Run tests with coverage
+test-cov:
+	docker-compose exec users python manage.py recreate_db
+	docker-compose exec users python manage.py cov
+
+# Code quality
+lint:
+	docker-compose exec users python manage.py lint
+
+format:
+	docker-compose exec users python manage.py format-code
+
+format-check:
+	docker-compose exec users python manage.py format-check
+
+# Run all quality checks
+quality: lint format-check
+	@echo "✅ All quality checks passed!"
+
 # Show logs
 logs:
 	docker-compose logs -f

@@ -6,3 +6,6 @@ Dockerfile-prod
 __pycache__
 *.pyc
 .git
+htmlcov/
+.coverage
+coverage.xml
