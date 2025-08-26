@@ -13,7 +13,8 @@ api = Api(app)
 
 # set config
 app.config.from_object('project.config.DevelopmentConfig')  # new - Update __init__.py to pull in the development config on init:
-# Afterr update above, Run the app again. This time, let's enable debug mode by setting the FLASK_ENV environment variable to development:
+# After update above, Run the app again. This time, let's enable debug mode by setting the FLASK_ENV environment variable to development:
+
 
 class UsersPing(Resource):
     def get(self):

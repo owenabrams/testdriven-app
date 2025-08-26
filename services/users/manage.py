@@ -16,6 +16,7 @@ Navigate to http://localhost:5000/users/ping in your browser. You should see:
 }
 
 Kill the server and add a new file called config.py to the "project" directory:
+
 '''
 
 from flask.cli import FlaskGroup
