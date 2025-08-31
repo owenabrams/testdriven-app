@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Functionality Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 PWA Functionality Test</h1>
+    <p>This page tests PWA functionality by directly accessing the React app's PWA services.</p>
+
+    <div class="test-section">
+        <h2>📱 PWA Configuration Test</h2>
+        <button onclick="testPWAConfig()">Test PWA Config</button>
+        <div id="config-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 PWA Manager Test</h2>
+        <button onclick="testPWAManager()">Test PWA Manager</button>
+        <div id="manager-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>💾 Offline Storage Test</h2>
+        <button onclick="testOfflineStorage()">Test Offline Storage</button>
+        <button onclick="addTestUser()">Add Test User</button>
+        <button onclick="getStoredUsers()">Get Stored Users</button>
+        <div id="storage-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 Service Worker Test</h2>
+        <button onclick="testServiceWorker()">Test Service Worker</button>
+        <div id="sw-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🌐 Network Status Test</h2>
+        <button onclick="testNetworkStatus()">Test Network Status</button>
+        <button onclick="simulateOffline()">Simulate Offline</button>
+        <button onclick="simulateOnline()">Simulate Online</button>
+        <div id="network-results"></div>
+    </div>
+
+    <script>
+        // Test PWA Configuration
+        async function testPWAConfig() {
+            const results = document.getElementById('config-results');
+            results.innerHTML = '<div class="status info">Testing PWA configuration...</div>';
+            
+            try {
+                // Try to access the React app's PWA config
+                const response = await fetch('http://localhost:3000/static/js/bundle.js');
+                if (response.ok) {
+                    results.innerHTML += '<div class="status success">✅ React app bundle accessible</div>';
+                } else {
+                    results.innerHTML += '<div class="status error">❌ React app bundle not accessible</div>';
+                }
+
+                // Test if we can access the PWA config through the window object
+                if (window.parent && window.parent.location.hostname === 'localhost') {
+                    results.innerHTML += '<div class="status info">🔍 Checking parent window for PWA config...</div>';
+                }
+
+                results.innerHTML += '<div class="status info">💡 Open browser console and navigate to http://localhost to see PWA initialization logs</div>';
+                
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test PWA Manager
+        async function testPWAManager() {
+            const results = document.getElementById('manager-results');
+            results.innerHTML = '<div class="status info">Testing PWA Manager...</div>';
+            
+            try {
+                // Check if PWA Manager is available in the main app
+                results.innerHTML += '<div class="status warning">⚠️ PWA Manager can only be tested from within the React app</div>';
+                results.innerHTML += '<div class="status info">📋 To test PWA Manager:</div>';
+                results.innerHTML += '<div class="status info">1. Open http://localhost in a new tab</div>';
+                results.innerHTML += '<div class="status info">2. Open browser developer tools (F12)</div>';
+                results.innerHTML += '<div class="status info">3. Check the Console tab for PWA initialization messages</div>';
+                results.innerHTML += '<div class="status info">4. Look for messages starting with "🚀 PWA Manager initializing..."</div>';
+                
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test Offline Storage
+        async function testOfflineStorage() {
+            const results = document.getElementById('storage-results');
+            results.innerHTML = '<div class="status info">Testing IndexedDB availability...</div>';
+            
+            try {
+                if ('indexedDB' in window) {
+                    results.innerHTML += '<div class="status success">✅ IndexedDB is supported</div>';
+                    
+                    // Test basic IndexedDB operations
+                    const request = indexedDB.open('PWATestDB', 1);
+                    
+                    request.onerror = () => {
+                        results.innerHTML += '<div class="status error">❌ IndexedDB access failed</div>';
+                    };
+                    
+                    request.onsuccess = (event) => {
+                        const db = event.target.result;
+                        results.innerHTML += '<div class="status success">✅ IndexedDB connection successful</div>';
+                        db.close();
+                    };
+                    
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains('users')) {
+                            db.createObjectStore('users', { keyPath: 'id' });
+                        }
+                        results.innerHTML += '<div class="status info">📦 IndexedDB object store created</div>';
+                    };
+                    
+                } else {
+                    results.innerHTML += '<div class="status error">❌ IndexedDB not supported</div>';
+                }
+                
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Add test user to IndexedDB
+        async function addTestUser() {
+            const results = document.getElementById('storage-results');
+            
+            try {
+                const request = indexedDB.open('PWATestDB', 1);
+                
+                request.onsuccess = (event) => {
+                    const db = event.target.result;
+                    const transaction = db.transaction(['users'], 'readwrite');
+                    const store = transaction.objectStore('users');
+                    
+                    const testUser = {
+                        id: Date.now(),
+                        username: 'testuser' + Date.now(),
+                        email: 'test@example.com',
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    const addRequest = store.add(testUser);
+                    
+                    addRequest.onsuccess = () => {
+                        results.innerHTML += `<div class="status success">✅ Test user added: ${testUser.username}</div>`;
+                    };
+                    
+                    addRequest.onerror = () => {
+                        results.innerHTML += '<div class="status error">❌ Failed to add test user</div>';
+                    };
+                };
+                
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Get stored users from IndexedDB
+        async function getStoredUsers() {
+            const results = document.getElementById('storage-results');
+            
+            try {
+                const request = indexedDB.open('PWATestDB', 1);
+                
+                request.onsuccess = (event) => {
+                    const db = event.target.result;
+                    const transaction = db.transaction(['users'], 'readonly');
+                    const store = transaction.objectStore('users');
+                    
+                    const getAllRequest = store.getAll();
+                    
+                    getAllRequest.onsuccess = () => {
+                        const users = getAllRequest.result;
+                        results.innerHTML += `<div class="status success">✅ Found ${users.length} stored users</div>`;
+                        if (users.length > 0) {
+                            results.innerHTML += '<pre>' + JSON.stringify(users, null, 2) + '</pre>';
+                        }
+                    };
+                    
+                    getAllRequest.onerror = () => {
+                        results.innerHTML += '<div class="status error">❌ Failed to retrieve users</div>';
+                    };
+                };
+                
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test Service Worker
+        async function testServiceWorker() {
+            const results = document.getElementById('sw-results');
+            results.innerHTML = '<div class="status info">Testing Service Worker support...</div>';
+            
+            try {
+                if ('serviceWorker' in navigator) {
+                    results.innerHTML += '<div class="status success">✅ Service Worker is supported</div>';
+                    
+                    // Check for existing registrations
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    results.innerHTML += `<div class="status info">📋 Found ${registrations.length} service worker registrations</div>`;
+                    
+                    if (registrations.length > 0) {
+                        registrations.forEach((reg, index) => {
+                            results.innerHTML += `<div class="status info">🔧 Registration ${index + 1}: ${reg.scope}</div>`;
+                        });
+                    }
+                    
+                    // Check if there's an active service worker
+                    if (navigator.serviceWorker.controller) {
+                        results.innerHTML += '<div class="status success">✅ Active service worker found</div>';
+                    } else {
+                        results.innerHTML += '<div class="status warning">⚠️ No active service worker</div>';
+                    }
+                    
+                } else {
+                    results.innerHTML += '<div class="status error">❌ Service Worker not supported</div>';
+                }
+                
+            } catch (error) {
+                results.innerHTML += `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test Network Status
+        function testNetworkStatus() {
+            const results = document.getElementById('network-results');
+            results.innerHTML = '<div class="status info">Testing network status...</div>';
+            
+            results.innerHTML += `<div class="status ${navigator.onLine ? 'success' : 'error'}">
+                ${navigator.onLine ? '✅ Online' : '❌ Offline'}
+            </div>`;
+            
+            // Add event listeners for network changes
+            window.addEventListener('online', () => {
+                results.innerHTML += '<div class="status success">🌐 Network came online</div>';
+            });
+            
+            window.addEventListener('offline', () => {
+                results.innerHTML += '<div class="status error">📴 Network went offline</div>';
+            });
+            
+            results.innerHTML += '<div class="status info">📡 Network change listeners added</div>';
+        }
+
+        // Simulate offline (for testing)
+        function simulateOffline() {
+            const results = document.getElementById('network-results');
+            results.innerHTML += '<div class="status warning">⚠️ Simulating offline mode (disconnect your internet to test properly)</div>';
+        }
+
+        // Simulate online (for testing)
+        function simulateOnline() {
+            const results = document.getElementById('network-results');
+            results.innerHTML += '<div class="status info">🌐 Simulating online mode (reconnect your internet to test properly)</div>';
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            console.log('🧪 PWA Functionality Test Page Loaded');
+            console.log('📋 Available tests:');
+            console.log('  - PWA Configuration Test');
+            console.log('  - PWA Manager Test');
+            console.log('  - Offline Storage Test');
+            console.log('  - Service Worker Test');
+            console.log('  - Network Status Test');
+        });
+    </script>
+</body>
+</html>

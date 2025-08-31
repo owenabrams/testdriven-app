@@ -4,7 +4,7 @@ from flask_testing import TestCase
 
 from project import create_app, db
 
-app = create_app()
+app, socketio = create_app()
 
 
 class BaseTestCase(TestCase):

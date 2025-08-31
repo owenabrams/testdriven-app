@@ -13,4 +13,8 @@ echo "Postgres is up - executing command"
 # Wait a bit more to ensure postgres is fully ready
 sleep 2
 
-python manage.py run -h 0.0.0.0
+python -c "
+from project import create_app, socketio
+app, socketio = create_app()
+socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+"

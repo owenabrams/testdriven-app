@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time PWA Test Monitor</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.4;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            margin: 10px 0;
+            padding: 15px;
+        }
+        .log-output {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 3px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin: 5px 0;
+            display: inline-block;
+        }
+        .success { background: #0f5132; color: #d1e7dd; }
+        .error { background: #842029; color: #f8d7da; }
+        .warning { background: #664d03; color: #fff3cd; }
+        .info { background: #055160; color: #b6effb; }
+        button {
+            background: #0d6efd;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+            font-family: inherit;
+        }
+        button:hover { background: #0b5ed7; }
+        .iframe-container {
+            border: 2px solid #444;
+            border-radius: 5px;
+            height: 400px;
+            margin: 10px 0;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Real-time PWA Test Monitor</h1>
+            <p>Monitoring PWA functionality at http://localhost</p>
+        </div>
+
+        <div class="test-section">
+            <h3>📱 Application View</h3>
+            <div class="iframe-container">
+                <iframe id="appFrame" src="http://localhost"></iframe>
+            </div>
+            <button onclick="refreshApp()">🔄 Refresh App</button>
+            <button onclick="loadPWATest()">🧪 Load PWA Test Page</button>
+            <button onclick="clearAppCache()">🧹 Clear Cache</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 PWA Status Monitor</h3>
+            <div id="statusDisplay">
+                <div class="status info">Initializing monitor...</div>
+            </div>
+            <button onclick="checkPWAStatus()">🔍 Check Status</button>
+            <button onclick="runDiagnostics()">🧪 Run Diagnostics</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Console Logs</h3>
+            <div id="consoleOutput" class="log-output">
+                Waiting for console messages...
+            </div>
+            <button onclick="clearLogs()">🗑️ Clear Logs</button>
+            <button onclick="exportLogs()">💾 Export Logs</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Test Actions</h3>
+            <button onclick="testOfflineStorage()">💾 Test Offline Storage</button>
+            <button onclick="testServiceWorker()">🔧 Test Service Worker</button>
+            <button onclick="testNetworkStatus()">🌐 Test Network</button>
+            <button onclick="simulateOffline()">📴 Simulate Offline</button>
+        </div>
+    </div>
+
+    <script>
+        let logs = [];
+        let statusCheckInterval;
+
+        // Initialize monitor
+        function initMonitor() {
+            log('🚀 PWA Test Monitor initialized');
+            log('📡 Starting status monitoring...');
+            
+            // Start periodic status checks
+            statusCheckInterval = setInterval(checkPWAStatus, 5000);
+            
+            // Initial status check
+            setTimeout(checkPWAStatus, 2000);
+        }
+
+        // Logging function
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            
+            const output = document.getElementById('consoleOutput');
+            output.textContent = logs.slice(-50).join('\n'); // Keep last 50 logs
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Status display function
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusDisplay');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // Check PWA status by communicating with iframe
+        function checkPWAStatus() {
+            try {
+                const iframe = document.getElementById('appFrame');
+                
+                // Try to access PWA status from iframe
+                iframe.contentWindow.postMessage({
+                    type: 'CHECK_PWA_STATUS'
+                }, 'http://localhost');
+                
+                log('📡 Sent PWA status check request');
+                
+            } catch (error) {
+                log(`❌ Error checking PWA status: ${error.message}`, 'error');
+                updateStatus('Error checking PWA status', 'error');
+            }
+        }
+
+        // Run diagnostics
+        function runDiagnostics() {
+            try {
+                const iframe = document.getElementById('appFrame');
+                iframe.contentWindow.postMessage({
+                    type: 'RUN_DIAGNOSTICS'
+                }, 'http://localhost');
+                
+                log('🧪 Running PWA diagnostics...');
+                updateStatus('Running diagnostics...', 'info');
+                
+            } catch (error) {
+                log(`❌ Error running diagnostics: ${error.message}`, 'error');
+            }
+        }
+
+        // Test functions
+        function testOfflineStorage() {
+            log('💾 Testing offline storage...');
+            
+            // Test IndexedDB directly
+            if ('indexedDB' in window) {
+                const request = indexedDB.open('testdriven-app', 1);
+                
+                request.onsuccess = () => {
+                    log('✅ IndexedDB connection successful');
+                    updateStatus('IndexedDB: Connected', 'success');
+                    request.result.close();
+                };
+                
+                request.onerror = () => {
+                    log('❌ IndexedDB connection failed');
+                    updateStatus('IndexedDB: Failed', 'error');
+                };
+            } else {
+                log('❌ IndexedDB not supported');
+                updateStatus('IndexedDB: Not supported', 'error');
+            }
+        }
+
+        function testServiceWorker() {
+            log('🔧 Testing service worker...');
+            
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    log(`📋 Found ${registrations.length} service worker registrations`);
+                    
+                    if (registrations.length > 0) {
+                        registrations.forEach((reg, index) => {
+                            log(`  - Registration ${index + 1}: ${reg.scope}`);
+                        });
+                        updateStatus(`Service Worker: ${registrations.length} active`, 'success');
+                    } else {
+                        updateStatus('Service Worker: None registered', 'warning');
+                    }
+                });
+            } else {
+                log('❌ Service Worker not supported');
+                updateStatus('Service Worker: Not supported', 'error');
+            }
+        }
+
+        function testNetworkStatus() {
+            log('🌐 Testing network status...');
+            const isOnline = navigator.onLine;
+            log(`📡 Network status: ${isOnline ? 'Online' : 'Offline'}`);
+            updateStatus(`Network: ${isOnline ? 'Online' : 'Offline'}`, isOnline ? 'success' : 'warning');
+        }
+
+        function simulateOffline() {
+            log('📴 Simulating offline mode...');
+            // Note: This doesn't actually make the browser offline, just logs the attempt
+            log('💡 To truly test offline: Use DevTools > Network > Offline');
+            updateStatus('Offline simulation: Use DevTools', 'info');
+        }
+
+        // Utility functions
+        function refreshApp() {
+            log('🔄 Refreshing application...');
+            document.getElementById('appFrame').src = 'http://localhost?' + Date.now();
+        }
+
+        function loadPWATest() {
+            log('🧪 Loading PWA test page...');
+            document.getElementById('appFrame').src = 'http://localhost/pwa-test';
+        }
+
+        function clearAppCache() {
+            log('🧹 Attempting to clear app cache...');
+            
+            // Clear caches
+            if ('caches' in window) {
+                caches.keys().then(cacheNames => {
+                    return Promise.all(
+                        cacheNames.map(cacheName => caches.delete(cacheName))
+                    );
+                }).then(() => {
+                    log('✅ Cache storage cleared');
+                });
+            }
+            
+            // Clear storage
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                log('✅ Local storage cleared');
+            } catch (error) {
+                log(`❌ Storage clear error: ${error.message}`);
+            }
+        }
+
+        function clearLogs() {
+            logs = [];
+            document.getElementById('consoleOutput').textContent = 'Logs cleared.';
+        }
+
+        function exportLogs() {
+            const logText = logs.join('\n');
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pwa-test-logs-${new Date().toISOString().slice(0,19)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Listen for messages from iframe
+        window.addEventListener('message', (event) => {
+            if (event.origin !== 'http://localhost') return;
+            
+            const { type, data } = event.data;
+            
+            switch (type) {
+                case 'PWA_STATUS_RESPONSE':
+                    log(`📊 PWA Status: ${JSON.stringify(data)}`);
+                    if (data.initialized) {
+                        updateStatus('PWA: Initialized ✅', 'success');
+                    } else {
+                        updateStatus('PWA: Failed ❌', 'error');
+                    }
+                    break;
+                    
+                case 'DIAGNOSTICS_RESULT':
+                    log(`🧪 Diagnostics: ${data.message}`);
+                    updateStatus(`Diagnostics: ${data.status}`, data.success ? 'success' : 'error');
+                    break;
+                    
+                case 'CONSOLE_LOG':
+                    log(`🖥️  App: ${data.message}`);
+                    break;
+            }
+        });
+
+        // Initialize when page loads
+        window.addEventListener('load', initMonitor);
+        
+        // Cleanup on unload
+        window.addEventListener('beforeunload', () => {
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -4,6 +4,8 @@
 [![Coverage](https://img.shields.io/badge/coverage-83%25-brightgreen.svg)](https://github.com/YOUR_GITHUB_USERNAME/testdriven-app)
 [![Code Quality](https://img.shields.io/badge/code%20quality-A-brightgreen.svg)](https://github.com/YOUR_GITHUB_USERNAME/testdriven-app)
 
+> **Note**: Replace `YOUR_GITHUB_USERNAME` with your actual GitHub username in the badges above.
+
 A microservices architecture built with Docker, Flask, and React, featuring comprehensive testing, code coverage, and continuous integration.
 
 ## 🚀 Features

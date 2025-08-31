@@ -1,0 +1,68 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`UsersList renders a snapshot properly 1`] = `
+<div>
+  <div
+    className="box"
+  >
+    <div
+      className="level"
+    >
+      <div
+        className="level-left"
+      >
+        <h4
+          className="title is-4 mb-1"
+        >
+          michael
+        </h4>
+      </div>
+      <div
+        className="level-right"
+      >
+        <span
+          className="tag is-warning is-small"
+        >
+          ⏳ Pending
+        </span>
+      </div>
+    </div>
+    <p
+      className="subtitle is-6 has-text-grey"
+    >
+      hermanmu@gmail.com
+    </p>
+  </div>
+  <div
+    className="box"
+  >
+    <div
+      className="level"
+    >
+      <div
+        className="level-left"
+      >
+        <h4
+          className="title is-4 mb-1"
+        >
+          michaelherman
+        </h4>
+      </div>
+      <div
+        className="level-right"
+      >
+        <span
+          className="tag is-warning is-small"
+        >
+          ⏳ Pending
+        </span>
+      </div>
+    </div>
+    <p
+      className="subtitle is-6 has-text-grey"
+    >
+      michael@mherman.org
+    </p>
+  </div>
+</div>
+`;

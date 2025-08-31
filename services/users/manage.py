@@ -6,7 +6,7 @@ import coverage
 
 from flask.cli import FlaskGroup
 
-from project import create_app, db
+from project import create_app, db, socketio
 # new
 from project.api.models import User  # new
 
@@ -21,8 +21,13 @@ COV = coverage.Coverage(
 )
 COV.start()
 
-app = create_app()  # new
-cli = FlaskGroup(create_app=create_app)  # new
+# app, socketio = create_app()  # new
+
+def create_app_for_cli():
+    app, _ = create_app()
+    return app
+
+cli = FlaskGroup(create_app=create_app_for_cli)  # new
 
 
 @cli.command('recreate_db')
@@ -35,8 +40,16 @@ def recreate_db():
 @cli.command('seed_db')
 def seed_db():
     """Seeds the database."""
-    db.session.add(User(username='michael', email="hermanmu@gmail.com"))
-    db.session.add(User(username='michaelherman', email="michael@mherman.org"))
+    db.session.add(User(
+        username='michael',
+        email='michael@reallynotreal.com',
+        password='greaterthaneight'
+    ))
+    db.session.add(User(
+        username='michaelherman',
+        email='michael@mherman.org',
+        password='greaterthaneight'
+    ))
     db.session.commit()
 
 
@@ -125,6 +138,78 @@ def format_check():
     else:
         print('❌ Code formatting issues found. Run "python manage.py format-code" to fix.')
         return 1
+
+
+@cli.command('reset_db')
+def reset_db():
+    """Drops and recreates the database with migrations."""
+    print("🗑️  Dropping all tables...")
+    db.drop_all()
+
+    print("🔄 Running migrations...")
+    try:
+        from flask_migrate import upgrade
+        upgrade()
+        print("✅ Database reset complete!")
+    except Exception as e:
+        print(f"❌ Migration failed: {e}")
+        print("🔧 Creating tables directly...")
+        db.create_all()
+        db.session.commit()
+        print("✅ Database created!")
+
+
+@cli.command('validate_db')
+def validate_db():
+    """Validates database schema and migrations."""
+    print("🔍 Validating database schema...")
+    try:
+        # Import and run validation script
+        import subprocess
+        result = subprocess.run([
+            sys.executable, 'scripts/validate_migrations.py'
+        ], capture_output=True, text=True)
+
+        print(result.stdout)
+        if result.stderr:
+            print("Errors:", result.stderr)
+
+        return result.returncode
+    except Exception as e:
+        print(f"❌ Validation failed: {e}")
+        return 1
+
+
+@cli.command('db_status')
+def db_status():
+    """Shows current database and migration status."""
+    print("📊 Database Status:")
+    print("-" * 40)
+
+    try:
+        # Check if tables exist
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
+
+        print(f"📋 Tables: {len(tables)}")
+        for table in tables:
+            print(f"  - {table}")
+
+        # Check migration status
+        try:
+            from flask_migrate import current
+            current_rev = current()
+            print(f"🔄 Current migration: {current_rev}")
+        except Exception:
+            print("🔄 Migration status: Not available")
+
+        # Check user count
+        user_count = User.query.count()
+        print(f"👥 Users in database: {user_count}")
+
+    except Exception as e:
+        print(f"❌ Error checking status: {e}")
 
 
 if __name__ == '__main__':

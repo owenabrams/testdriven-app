@@ -1,0 +1,117 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`App renders a snapshot properly 1`] = `
+<section
+  className="section"
+>
+  <div
+    className="container"
+  >
+    <div
+      className="columns is-centered"
+    >
+      <div
+        className="column is-half"
+      >
+        <div
+          className="box"
+        >
+          <h2
+            className="title is-4"
+          >
+            🔐 Login
+          </h2>
+          <form
+            onSubmit={[Function]}
+          >
+            <div
+              className="field"
+            >
+              <label
+                className="label"
+              >
+                Username
+              </label>
+              <div
+                className="control has-icons-left"
+              >
+                <input
+                  className="input"
+                  name="username"
+                  onChange={[Function]}
+                  placeholder="Enter your username"
+                  required={true}
+                  type="text"
+                  value=""
+                />
+                <span
+                  className="icon is-small is-left"
+                >
+                  <i
+                    className="fas fa-user"
+                  />
+                </span>
+              </div>
+            </div>
+            <div
+              className="field"
+            >
+              <label
+                className="label"
+              >
+                Password
+              </label>
+              <div
+                className="control has-icons-left"
+              >
+                <input
+                  className="input"
+                  name="password"
+                  onChange={[Function]}
+                  placeholder="Enter your password"
+                  required={true}
+                  type="password"
+                  value=""
+                />
+                <span
+                  className="icon is-small is-left"
+                >
+                  <i
+                    className="fas fa-lock"
+                  />
+                </span>
+              </div>
+            </div>
+            <div
+              className="field"
+            >
+              <div
+                className="control"
+              >
+                <button
+                  className="button is-primary is-fullwidth "
+                  disabled={false}
+                  type="submit"
+                >
+                  🔐 Login
+                </button>
+              </div>
+            </div>
+          </form>
+          <div
+            className="has-text-centered mt-4"
+          >
+            <button
+              className="button is-text"
+              disabled={false}
+              onClick={[Function]}
+            >
+              Don't have an account? Register here
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+`;

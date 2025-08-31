@@ -6,6 +6,7 @@ from sqlalchemy import exc
 
 from project import db
 from project.api.models import User
+from project.api.socketio_events import broadcast_user_added
 
 users_blueprint = Blueprint("users", __name__, template_folder="./templates")
 main_blueprint = Blueprint("main", __name__, template_folder="./templates")
@@ -36,18 +37,25 @@ class UsersList(Resource):
             return response_object, 400
         username = post_data.get("username")
         email = post_data.get("email")
+        password = post_data.get("password")
         try:
             user = User.query.filter_by(email=email).first()
             if not user:
-                db.session.add(User(username=username, email=email))
+                new_user = User(username=username, email=email, password=password)
+                db.session.add(new_user)
                 db.session.commit()
+
+                # Broadcast real-time update for chat, dashboard, notifications
+                broadcast_user_added(new_user.to_json())
+
                 response_object["status"] = "success"
                 response_object["message"] = f"{email} was added!"
+                response_object["data"] = {"user": new_user.to_json()}
                 return response_object, 201
             else:
                 response_object["message"] = "Sorry. That email already exists."
                 return response_object, 400
-        except exc.IntegrityError:
+        except (exc.IntegrityError, ValueError):
             db.session.rollback()
             return response_object, 400
 

@@ -44,6 +44,9 @@ coverage.xml
 # Logs
 *.log
 logs/
+setup-*.log
+monitor-*.log
+alerts-*.log
 
 # Environment variables
 .env
@@ -62,8 +65,22 @@ logs/
 *.db
 *.sqlite3
 
-# Node.js (for future React frontend)
+# Node.js & React
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+build/
+.cache/
+
+# Docker & Backups
+backups/
+*.sql
+*.dump
+*.backup
+
+# Keep important files
+!scripts/
+!docs/
+!README*.md
+!*-FAILSAFE.md
