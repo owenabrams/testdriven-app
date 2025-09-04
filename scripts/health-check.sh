@@ -1,12 +1,9 @@
 #!/bin/bash
 
-# Comprehensive Health Check Script
-# Ensures all services are working correctly after deployment
+# Health Check Script for Local Development
+# Checks if services are running and healthy
 
-set -e  # Exit on any error
-
-echo "🏥 COMPREHENSIVE HEALTH CHECK STARTING..."
-echo "========================================"
+set -e
 
 # Colors for output
 RED='\033[0;31m'
@@ -16,169 +13,118 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-MAX_RETRIES=30
-RETRY_DELAY=2
 BASE_URL="http://localhost"
+FRONTEND_PORT="3000"
+BACKEND_PORT="5001"
+TIMEOUT=10
 
-# Health check functions
+failed_checks=0
+
+# Function to check service health
 check_service() {
-    local service_name=$1
-    local url=$2
-    local expected_status=${3:-200}
-    local retries=0
+    local service_name="$1"
+    local url="$2"
+    local expected_status="${3:-200}"
     
     echo -n "🔍 Checking $service_name... "
     
-    while [ $retries -lt $MAX_RETRIES ]; do
-        if curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "$expected_status"; then
-            echo -e "${GREEN}✅ PASS${NC}"
+    if response=$(curl -s -w "%{http_code}" -o /dev/null --max-time $TIMEOUT "$url" 2>/dev/null); then
+        if [[ "$response" == "$expected_status" ]]; then
+            echo -e "${GREEN}✅ HEALTHY (HTTP $response)${NC}"
             return 0
-        fi
-        retries=$((retries + 1))
-        sleep $RETRY_DELAY
-        echo -n "."
-    done
-    
-    echo -e "${RED}❌ FAIL${NC}"
-    return 1
-}
-
-check_json_response() {
-    local service_name=$1
-    local url=$2
-    local expected_key=$3
-    
-    echo -n "🔍 Checking $service_name JSON response... "
-    
-    local response=$(curl -s "$url")
-    if echo "$response" | jq -e ".$expected_key" > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ PASS${NC}"
-        return 0
-    else
-        echo -e "${RED}❌ FAIL${NC}"
-        echo "Response: $response"
-        return 1
-    fi
-}
-
-check_database() {
-    echo -n "🔍 Checking database connection... "
-
-    if docker-compose exec -T users python -c "
-from project import create_app, db
-from project.api.models import User
-app, _ = create_app()
-with app.app_context():
-    User.query.first()
-print('Database connection successful')
-" > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ PASS${NC}"
-        return 0
-    else
-        echo -e "${RED}❌ FAIL${NC}"
-        return 1
-    fi
-}
-
-check_pwa_files() {
-    local files=("manifest.json" "sw-safe.js" "favicon.ico")
-    
-    for file in "${files[@]}"; do
-        echo -n "🔍 Checking PWA file $file... "
-        if check_service "PWA $file" "$BASE_URL/$file" "200"; then
-            continue
         else
+            echo -e "${YELLOW}⚠️  UNEXPECTED STATUS (HTTP $response, expected $expected_status)${NC}"
             return 1
         fi
-    done
-}
-
-# Main health checks
-main() {
-    local failed_checks=0
-    
-    echo -e "${BLUE}Phase 1: Container Health${NC}"
-    echo "========================"
-    
-    # Check if all containers are running
-    echo -n "🔍 Checking container status... "
-    if docker-compose ps | grep -q "Exit\|unhealthy"; then
-        echo -e "${RED}❌ FAIL - Some containers are not healthy${NC}"
-        docker-compose ps
-        ((failed_checks++))
     else
-        echo -e "${GREEN}✅ PASS${NC}"
-    fi
-    
-    echo -e "\n${BLUE}Phase 2: Service Connectivity${NC}"
-    echo "============================="
-    
-    # Basic service checks
-    check_service "Frontend" "$BASE_URL/" || ((failed_checks++))
-    check_service "Backend Health" "$BASE_URL/users/ping" || ((failed_checks++))
-    check_service "Auth Endpoint" "$BASE_URL/auth/register" "405" || ((failed_checks++))  # Method not allowed is expected
-    
-    echo -e "\n${BLUE}Phase 3: API Functionality${NC}"
-    echo "=========================="
-    
-    # API response checks
-    check_json_response "Users API" "$BASE_URL/users" "data" || ((failed_checks++))
-    check_json_response "Health Check" "$BASE_URL/users/ping" "status" || ((failed_checks++))
-    
-    echo -e "\n${BLUE}Phase 4: Database Connectivity${NC}"
-    echo "=============================="
-    
-    check_database || ((failed_checks++))
-    
-    echo -e "\n${BLUE}Phase 5: PWA Infrastructure${NC}"
-    echo "==========================="
-    
-    check_pwa_files || ((failed_checks++))
-    
-    echo -e "\n${BLUE}Phase 6: Authentication Flow${NC}"
-    echo "============================"
-    
-    # Test full auth flow
-    echo -n "🔍 Testing registration... "
-    local timestamp=$(date +%s)
-    local test_username="healthcheck-$timestamp"
-    local test_email="healthcheck-$timestamp@test.com"
-    local reg_response=$(curl -s -X POST "$BASE_URL/auth/register" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"$test_username\",\"email\":\"$test_email\",\"password\":\"testpass123\"}")
-    
-    if echo "$reg_response" | jq -e '.auth_token' > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ PASS${NC}"
-        
-        # Test login
-        echo -n "🔍 Testing login... "
-        local login_response=$(curl -s -X POST "$BASE_URL/auth/login" \
-            -H "Content-Type: application/json" \
-            -d "{\"email\":\"$test_email\",\"password\":\"testpass123\"}")
-        
-        if echo "$login_response" | jq -e '.auth_token' > /dev/null 2>&1; then
-            echo -e "${GREEN}✅ PASS${NC}"
-        else
-            echo -e "${RED}❌ FAIL${NC}"
-            ((failed_checks++))
-        fi
-    else
-        echo -e "${RED}❌ FAIL${NC}"
-        ((failed_checks++))
-    fi
-    
-    # Final report
-    echo -e "\n${BLUE}HEALTH CHECK SUMMARY${NC}"
-    echo "===================="
-    
-    if [ $failed_checks -eq 0 ]; then
-        echo -e "${GREEN}🎉 ALL CHECKS PASSED! System is healthy.${NC}"
-        exit 0
-    else
-        echo -e "${RED}❌ $failed_checks checks failed. System needs attention.${NC}"
-        exit 1
+        echo -e "${RED}❌ UNREACHABLE${NC}"
+        return 1
     fi
 }
 
-# Run main function
-main "$@"
+# Function to check if port is open
+check_port() {
+    local service_name="$1"
+    local port="$2"
+    
+    echo -n "🔍 Checking $service_name port $port... "
+    
+    if nc -z localhost "$port" 2>/dev/null; then
+        echo -e "${GREEN}✅ OPEN${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ CLOSED${NC}"
+        return 1
+    fi
+}
+
+echo "🏥 Health Check Report"
+echo "====================="
+echo "Timestamp: $(date)"
+echo "Environment: Local Development"
+echo ""
+
+echo -e "${BLUE}Phase 1: Port Availability${NC}"
+echo "=========================="
+
+# Check if ports are open
+check_port "Frontend" "$FRONTEND_PORT" || ((failed_checks++))
+check_port "Backend" "$BACKEND_PORT" || ((failed_checks++))
+
+echo -e "\n${BLUE}Phase 2: Service Health${NC}"
+echo "========================"
+
+# Check service endpoints
+check_service "Frontend" "$BASE_URL:$FRONTEND_PORT/" || ((failed_checks++))
+check_service "Backend API" "$BASE_URL:$BACKEND_PORT/users/ping" || ((failed_checks++))
+check_service "Users Endpoint" "$BASE_URL:$BACKEND_PORT/users" || ((failed_checks++))
+
+echo -e "\n${BLUE}Phase 3: Database Connectivity${NC}"
+echo "==============================="
+
+# Check database connectivity (if backend is running)
+if curl -s "$BASE_URL:$BACKEND_PORT/users/ping" > /dev/null; then
+    echo -n "🔍 Checking database connection... "
+    
+    # Try to get users list as a database connectivity test
+    if curl -s "$BASE_URL:$BACKEND_PORT/users" | grep -q "users"; then
+        echo -e "${GREEN}✅ DATABASE CONNECTED${NC}"
+    else
+        echo -e "${RED}❌ DATABASE CONNECTION FAILED${NC}"
+        ((failed_checks++))
+    fi
+else
+    echo -e "${YELLOW}⚠️  Backend not running, skipping database check${NC}"
+fi
+
+echo -e "\n${BLUE}Phase 4: Frontend-Backend Integration${NC}"
+echo "====================================="
+
+# Check if frontend can reach backend
+echo -n "🔍 Checking frontend-backend integration... "
+if curl -s "$BASE_URL:$FRONTEND_PORT/" | grep -q "TestDriven"; then
+    echo -e "${GREEN}✅ FRONTEND LOADED${NC}"
+else
+    echo -e "${RED}❌ FRONTEND INTEGRATION FAILED${NC}"
+    ((failed_checks++))
+fi
+
+# Summary
+echo -e "\n${BLUE}Health Check Summary${NC}"
+echo "==================="
+
+if [ $failed_checks -eq 0 ]; then
+    echo -e "${GREEN}✅ ALL CHECKS PASSED${NC}"
+    echo "🎉 System is healthy and ready for development!"
+    exit 0
+else
+    echo -e "${RED}❌ $failed_checks CHECK(S) FAILED${NC}"
+    echo ""
+    echo "🔧 Troubleshooting:"
+    echo "  • Make sure both services are running:"
+    echo "    - Frontend: cd services/client && npm start"
+    echo "    - Backend: cd services/users && source venv/bin/activate && python run_flask.py"
+    echo "  • Check that no other services are using ports $FRONTEND_PORT or $BACKEND_PORT"
+    echo "  • Verify database is properly configured and accessible"
+    exit 1
+fi

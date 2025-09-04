@@ -17,7 +17,7 @@ This document outlines the comprehensive backup strategy for the testdriven-app 
 - ✅ Real-time: SocketIO configured
 - ✅ PWA: Service worker + offline storage
 - ✅ Failsafe: Comprehensive monitoring system
-- ✅ Infrastructure: Docker + nginx + health checks
+- ✅ Infrastructure: Native Python/Node.js + health checks
 
 ---
 

@@ -73,7 +73,7 @@ yarn-error.log*
 build/
 .cache/
 
-# Docker & Backups
+# Backups
 backups/
 *.sql
 *.dump

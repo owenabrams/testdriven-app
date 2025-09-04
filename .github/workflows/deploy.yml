@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Build and Deploy
 
 on:
   push:
@@ -11,14 +11,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Run tests
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Run backend tests
         run: |
-          docker-compose up -d --build
-          docker-compose exec -T users python manage.py recreate_db
-          docker-compose exec -T users python manage.py test
-          docker-compose down
+          cd services/users
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m pytest project/tests/ -v
+      
+      - name: Run frontend tests
+        run: |
+          cd services/client
+          npm ci
+          npm run coverage
 
-  deploy:
+  build:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -26,15 +42,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Deploy to production
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Build production assets
         env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          REACT_APP_USERS_SERVICE_URL: ${{ secrets.REACT_APP_USERS_SERVICE_URL }}
         run: |
           # Create production env file
-          echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" > .env.prod
+          echo "DATABASE_URL=$DATABASE_URL" > .env.prod
           echo "SECRET_KEY=$SECRET_KEY" >> .env.prod
+          echo "REACT_APP_USERS_SERVICE_URL=$REACT_APP_USERS_SERVICE_URL" >> .env.prod
           echo "FLASK_ENV=production" >> .env.prod
           
-          # Deploy
-          ./scripts/deploy.sh production
+          # Build frontend
+          cd services/client
+          npm ci
+          npm run build
+          
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: production-build
+          path: |
+            services/client/build/
+            services/users/
+            .env.prod

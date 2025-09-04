@@ -2,15 +2,15 @@
 
 set -e  # Exit on any error
 
-ENVIRONMENT=${1:-staging}
-COMPOSE_FILE="docker-compose.prod.yml"
+ENVIRONMENT=${1:-production}
 ENV_FILE=".env.prod"
 
-echo "🚀 Deploying to $ENVIRONMENT environment..."
+echo "🚀 Building for $ENVIRONMENT environment..."
 
 # Validate environment file exists
 if [ ! -f "$ENV_FILE" ]; then
     echo "❌ Environment file $ENV_FILE not found!"
+    echo "Please create $ENV_FILE with the required environment variables."
     exit 1
 fi
 
@@ -18,7 +18,7 @@ fi
 export $(cat $ENV_FILE | grep -v '^#' | xargs)
 
 # Validate required environment variables
-required_vars=("POSTGRES_PASSWORD" "SECRET_KEY")
+required_vars=("DATABASE_URL" "SECRET_KEY" "REACT_APP_USERS_SERVICE_URL")
 for var in "${required_vars[@]}"; do
     if [ -z "${!var}" ]; then
         echo "❌ Required environment variable $var is not set!"
@@ -26,31 +26,21 @@ for var in "${required_vars[@]}"; do
     fi
 done
 
-# Pull latest images (if using registry)
-echo "📥 Pulling latest images..."
-docker-compose -f $COMPOSE_FILE pull || true
+# Build frontend for production
+echo "🔨 Building frontend for production..."
+cd services/client
+npm run build
+cd ../..
 
-# Build and deploy
-echo "🔨 Building and deploying..."
-docker-compose -f $COMPOSE_FILE up -d --build
+# Setup backend for production
+echo "🔨 Setting up backend for production..."
+cd services/users
+source venv/bin/activate
+pip install -r requirements.prod.txt
+cd ../..
 
-# Wait for services to be healthy
-echo "⏳ Waiting for services to be healthy..."
-timeout 300 bash -c 'until docker-compose -f docker-compose.prod.yml ps | grep -q "healthy"; do sleep 5; done'
-
-# Run database migrations
-echo "🗄️  Running database migrations..."
-docker-compose -f $COMPOSE_FILE exec -T users python manage.py recreate_db
-
-# Run health checks
-echo "🏥 Running health checks..."
-sleep 10
-curl -f http://localhost/health || {
-    echo "❌ Health check failed!"
-    docker-compose -f $COMPOSE_FILE logs
-    exit 1
-}
-
-echo "✅ Deployment successful!"
-echo "📊 Service status:"
-docker-compose -f $COMPOSE_FILE ps
+echo "✅ Production build complete!"
+echo "📋 To deploy:"
+echo "  1. Copy services/client/build/ to your web server"
+echo "  2. Deploy services/users/ to your Python server"
+echo "  3. Set up your database and run migrations"

@@ -6,133 +6,114 @@ on:
   pull_request:
     branches: [ main, master, develop ]
 
-env:
-  DOCKER_BUILDKIT: 1
-  COMPOSE_DOCKER_CLI_BUILD: 1
-
 jobs:
-  # Code Quality Job
-  quality:
-    name: Code Quality
+  # Backend Tests
+  backend:
+    name: Backend Tests
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-    - name: Cache Docker layers
+    - name: Cache pip dependencies
       uses: actions/cache@v3
       with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-quality-${{ hashFiles('services/users/requirements.txt') }}
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('services/users/requirements.txt') }}
         restore-keys: |
-          ${{ runner.os }}-buildx-quality-
-          ${{ runner.os }}-buildx-
+          ${{ runner.os }}-pip-
 
-    - name: Build services
+    - name: Install dependencies
       run: |
-        docker-compose build users
+        cd services/users
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
     - name: Run linting
       run: |
-        docker-compose run --rm users python manage.py lint
-
-    - name: Check code formatting
-      run: |
-        docker-compose run --rm users python manage.py format-check
-
-  # Test Job
-  test:
-    name: Tests and Coverage
-    runs-on: ubuntu-latest
-    needs: quality
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Cache Docker layers
-      uses: actions/cache@v3
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-test-${{ hashFiles('services/users/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-test-
-          ${{ runner.os }}-buildx-quality-
-          ${{ runner.os }}-buildx-
-
-    - name: Build and start services
-      run: |
-        docker-compose up -d --build
-
-    - name: Wait for services to be ready
-      run: |
-        echo "Waiting for services to be ready..."
-        timeout 60 bash -c 'until docker-compose exec -T users python -c "import sys; sys.exit(0)"; do sleep 2; done'
-        docker-compose ps
-
-    - name: Run database setup
-      run: |
-        docker-compose exec -T users python manage.py recreate_db
+        cd services/users
+        python -m flake8 project --exclude=venv
 
     - name: Run tests with coverage
       run: |
-        docker-compose exec -T users python manage.py cov
+        cd services/users
+        python -m pytest project/tests/ -v --cov=project --cov-report=html
 
     - name: Upload coverage reports
       uses: actions/upload-artifact@v3
       if: always()
       with:
-        name: coverage-report
+        name: backend-coverage-report
         path: services/users/htmlcov/
 
-    - name: Cleanup
-      if: always()
-      run: |
-        docker-compose down
-
-  # Integration Test Job
-  integration:
-    name: Integration Tests
+  # Frontend Tests
+  frontend:
+    name: Frontend Tests
     runs-on: ubuntu-latest
-    needs: [quality, test]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: services/client/package-lock.json
 
-    - name: Build and start all services
+    - name: Install dependencies
       run: |
-        docker-compose -f docker-compose.yml up -d --build
+        cd services/client
+        npm ci
 
-    - name: Wait for all services
+    - name: Run tests with coverage
       run: |
-        echo "Waiting for all services to be ready..."
-        sleep 20
-        docker-compose ps
+        cd services/client
+        npm run coverage
 
-    - name: Test service connectivity
-      run: |
-        # Test that nginx is routing correctly
-        curl -f http://localhost || exit 1
-
-    - name: Run integration tests
-      run: |
-        docker-compose exec -T users python manage.py recreate_db
-        docker-compose exec -T users python manage.py seed_db
-        docker-compose exec -T users python manage.py test
-
-    - name: Cleanup
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
       if: always()
+      with:
+        name: frontend-coverage-report
+        path: services/client/coverage/
+
+  # Build Test
+  build:
+    name: Build Test
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: services/client/package-lock.json
+
+    - name: Install frontend dependencies
       run: |
-        docker-compose down
+        cd services/client
+        npm ci
+
+    - name: Build frontend
+      run: |
+        cd services/client
+        npm run build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-build
+        path: services/client/build/

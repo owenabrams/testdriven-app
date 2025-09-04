@@ -1,59 +1,98 @@
 import React from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Typography,
+  Chip,
+  Box
+} from '@mui/material';
 
 const UsersList = (props) => {
+  if (props.loading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="h6" color="text.secondary">
+          Loading users...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Handle case where users array is empty or undefined
+  if (!props.users || props.users.length === 0) {
+    return (
+      <div>
+        <Typography variant="h2" component="h1" gutterBottom sx={{ mb: 3 }}>
+          All Users
+        </Typography>
+        <hr />
+        <br />
+        
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography variant="h6" color="text.secondary">
+            No users found. 
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+            Register a new account to see users appear here!
+          </Typography>
+        </Box>
+      </div>
+    );
+  }
+
   return (
     <div>
-      {
-        props.users.map((user) => {
-          return (
-            <div
-              key={user.id}
-              className="box"
-            >
-              <div className="level">
-                <div className="level-left">
-                  <h4 className="title is-4 mb-1">
-                    {user.username}
-                  </h4>
-                </div>
-                <div className="level-right">
-                  {/* Sync Status Indicator */}
-                  {user.synced ? (
-                    <span className="tag is-success is-small">
-                      ✅ Synced
-                    </span>
-                  ) : (
-                    <span className="tag is-warning is-small">
-                      ⏳ Pending
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <p className="subtitle is-6 has-text-grey">
-                {user.email}
-              </p>
-
-              {/* Additional metadata for debugging */}
-              {user.createdAt && (
-                <p className="is-size-7 has-text-grey-light">
-                  Created: {new Date(user.createdAt).toLocaleString()}
-                </p>
-              )}
-            </div>
-          )
-        })
-      }
-
-      {/* Empty state */}
-      {props.users.length === 0 && (
-        <div className="has-text-centered has-text-grey">
-          <p className="is-size-5">No users yet</p>
-          <p className="is-size-6">Add your first user above!</p>
-        </div>
-      )}
+      <Typography variant="h2" component="h1" gutterBottom sx={{ mb: 3 }}>
+        All Users
+      </Typography>
+      <hr />
+      <br />
+      
+      <TableContainer component={Paper} elevation={2}>
+        <Table sx={{ minWidth: 650 }} hover>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: 'grey.50' }}>
+              <TableCell><strong>ID</strong></TableCell>
+              <TableCell><strong>Email</strong></TableCell>
+              <TableCell><strong>Username</strong></TableCell>
+              <TableCell><strong>Active</strong></TableCell>
+              <TableCell><strong>Admin</strong></TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {props.users.map((user) => (
+              <TableRow key={user.id} hover>
+                <TableCell>{user.id}</TableCell>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>{user.username}</TableCell>
+                <TableCell>
+                  <Chip 
+                    label={String(user.active)} 
+                    color={user.active ? 'success' : 'error'}
+                    size="small"
+                    variant="outlined"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Chip 
+                    label={String(user.admin)} 
+                    color={user.admin ? 'primary' : 'default'}
+                    size="small"
+                    variant="outlined"
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </div>
-  )
+  );
 };
 
 export default UsersList;

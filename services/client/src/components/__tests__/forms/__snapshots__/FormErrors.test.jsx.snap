@@ -1,0 +1,143 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`FormErrors Component FormErrors (with Login form) renders a snapshot properly 1`] = `
+<div
+  class="MuiBox-root css-1qm1lh"
+>
+  <ul
+    class="MuiList-root MuiList-padding validation-list css-duwaa2-MuiList-root"
+  >
+    <li
+      class="MuiListItem-root MuiListItem-gutters MuiListItem-padding error css-vaqbqu-MuiListItem-root"
+    >
+      <svg
+        aria-hidden="true"
+        class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-197gm3n-MuiSvgIcon-root"
+        data-testid="CancelIcon"
+        focusable="false"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"
+        />
+      </svg>
+      <p
+        class="MuiTypography-root MuiTypography-body2 css-nhkaa8-MuiTypography-root"
+      >
+        Email is required.
+      </p>
+    </li>
+    <li
+      class="MuiListItem-root MuiListItem-gutters MuiListItem-padding error css-vaqbqu-MuiListItem-root"
+    >
+      <svg
+        aria-hidden="true"
+        class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-197gm3n-MuiSvgIcon-root"
+        data-testid="CancelIcon"
+        focusable="false"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"
+        />
+      </svg>
+      <p
+        class="MuiTypography-root MuiTypography-body2 css-nhkaa8-MuiTypography-root"
+      >
+        Password is required.
+      </p>
+    </li>
+  </ul>
+</div>
+`;
+
+exports[`FormErrors Component FormErrors (with Register form) renders a snapshot properly 1`] = `
+<div
+  class="MuiBox-root css-1qm1lh"
+>
+  <ul
+    class="MuiList-root MuiList-padding validation-list css-duwaa2-MuiList-root"
+  >
+    <li
+      class="MuiListItem-root MuiListItem-gutters MuiListItem-padding error css-vaqbqu-MuiListItem-root"
+    >
+      <svg
+        aria-hidden="true"
+        class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-197gm3n-MuiSvgIcon-root"
+        data-testid="CancelIcon"
+        focusable="false"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"
+        />
+      </svg>
+      <p
+        class="MuiTypography-root MuiTypography-body2 css-nhkaa8-MuiTypography-root"
+      >
+        Username must be greater than 5 characters.
+      </p>
+    </li>
+    <li
+      class="MuiListItem-root MuiListItem-gutters MuiListItem-padding error css-vaqbqu-MuiListItem-root"
+    >
+      <svg
+        aria-hidden="true"
+        class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-197gm3n-MuiSvgIcon-root"
+        data-testid="CancelIcon"
+        focusable="false"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"
+        />
+      </svg>
+      <p
+        class="MuiTypography-root MuiTypography-body2 css-nhkaa8-MuiTypography-root"
+      >
+        Email must be greater than 5 characters.
+      </p>
+    </li>
+    <li
+      class="MuiListItem-root MuiListItem-gutters MuiListItem-padding error css-vaqbqu-MuiListItem-root"
+    >
+      <svg
+        aria-hidden="true"
+        class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-197gm3n-MuiSvgIcon-root"
+        data-testid="CancelIcon"
+        focusable="false"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"
+        />
+      </svg>
+      <p
+        class="MuiTypography-root MuiTypography-body2 css-nhkaa8-MuiTypography-root"
+      >
+        Email must be a valid email address.
+      </p>
+    </li>
+    <li
+      class="MuiListItem-root MuiListItem-gutters MuiListItem-padding error css-vaqbqu-MuiListItem-root"
+    >
+      <svg
+        aria-hidden="true"
+        class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-197gm3n-MuiSvgIcon-root"
+        data-testid="CancelIcon"
+        focusable="false"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"
+        />
+      </svg>
+      <p
+        class="MuiTypography-root MuiTypography-body2 css-nhkaa8-MuiTypography-root"
+      >
+        Password must be greater than 10 characters.
+      </p>
+    </li>
+  </ul>
+</div>
+`;

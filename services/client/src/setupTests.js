@@ -1,43 +1,62 @@
-// Tutorial-style setup but with modern compatibility
+// jest-dom adds custom jest matchers for asserting on DOM nodes.
+// allows you to do things like:
+// expect(element).toHaveTextContent(/react/i)
+// learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 
-// Resolution for requestAnimationFrame not supported in jest error
-global.window = global;
-window.addEventListener = () => {};
-window.requestAnimationFrame = () => {
-  throw new Error('requestAnimationFrame is not supported in Node');
+// Mock IntersectionObserver for Material-UI components
+global.IntersectionObserver = class IntersectionObserver {
+  constructor() {}
+  disconnect() {}
+  observe() {}
+  unobserve() {}
 };
 
-// Mock IndexedDB for tests
-require('fake-indexeddb/auto');
+// Mock ResizeObserver for Material-UI components
+global.ResizeObserver = class ResizeObserver {
+  constructor() {}
+  disconnect() {}
+  observe() {}
+  unobserve() {}
+};
 
-// Mock navigator.onLine
-Object.defineProperty(navigator, 'onLine', {
+// Mock matchMedia for responsive components
+Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: true
+  value: jest.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(), // deprecated
+    removeListener: jest.fn(), // deprecated
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
 });
 
-// Mock the idb library
-jest.mock('idb', () => ({
-  openDB: jest.fn(() => Promise.resolve({
-    createObjectStore: jest.fn(),
-    objectStoreNames: { contains: jest.fn(() => false) },
-    transaction: jest.fn(() => ({
-      objectStore: jest.fn(() => ({
-        add: jest.fn(() => Promise.resolve()),
-        put: jest.fn(() => Promise.resolve()),
-        get: jest.fn(() => Promise.resolve()),
-        getAll: jest.fn(() => Promise.resolve([])),
-        delete: jest.fn(() => Promise.resolve()),
-        clear: jest.fn(() => Promise.resolve()),
-        createIndex: jest.fn()
-      })),
-      done: Promise.resolve()
-    })),
-    add: jest.fn(() => Promise.resolve()),
-    put: jest.fn(() => Promise.resolve()),
-    get: jest.fn(() => Promise.resolve()),
-    getAll: jest.fn(() => Promise.resolve([])),
-    delete: jest.fn(() => Promise.resolve())
-  }))
-}));
+// Mock performance.now for performance testing
+if (!global.performance) {
+  global.performance = {};
+}
+if (!global.performance.now) {
+  global.performance.now = jest.fn(() => Date.now());
+}
+
+// Suppress console warnings during tests
+const originalError = console.error;
+beforeAll(() => {
+  console.error = (...args) => {
+    if (
+      typeof args[0] === 'string' &&
+      args[0].includes('Warning: ReactDOM.render is no longer supported')
+    ) {
+      return;
+    }
+    originalError.call(console, ...args);
+  };
+});
+
+afterAll(() => {
+  console.error = originalError;
+});
