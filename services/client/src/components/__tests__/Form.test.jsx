@@ -56,7 +56,7 @@ describe('Form Component', () => {
       </TestWrapper>
     );
     
-    const submitButton = screen.getByRole('button', { name: /register/i });
+    const submitButton = screen.getByRole('button', { name: /submit/i });
     expect(submitButton).toBeDisabled();
   });
 });

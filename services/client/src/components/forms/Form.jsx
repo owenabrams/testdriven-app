@@ -46,13 +46,13 @@ const Form = (props) => {
   }, []);
 
   // Reset all validation rules
-  const resetRules = useCallback(() => {
+  const resetRules = () => {
     const resetRegisterRules = registerFormRules.map(rule => ({ ...rule, valid: false }));
     const resetLoginRules = loginFormRules.map(rule => ({ ...rule, valid: false }));
     setRegisterRules(resetRegisterRules);
     setLoginRules(resetLoginRules);
     setValid(false);
-  }, []);
+  };
 
   // Check if all rules are valid
   const allTrue = useCallback(() => {
@@ -62,9 +62,6 @@ const Form = (props) => {
 
   // Validate form
   const validateForm = useCallback(() => {
-    // Reset all rules
-    resetRules();
-    
     // Validate register form
     if (props.formType === 'Register') {
       const updatedRules = [...registerFormRules];
@@ -74,9 +71,7 @@ const Form = (props) => {
       if (formData.password.length > 10) updatedRules[3].valid = true;
       setRegisterRules(updatedRules);
       
-      if (updatedRules.every(rule => rule.valid)) {
-        setValid(true);
-      }
+      setValid(updatedRules.every(rule => rule.valid));
     }
     
     // Validate login form
@@ -86,11 +81,9 @@ const Form = (props) => {
       if (formData.password.length > 0) updatedRules[1].valid = true;
       setLoginRules(updatedRules);
       
-      if (updatedRules.every(rule => rule.valid)) {
-        setValid(true);
-      }
+      setValid(updatedRules.every(rule => rule.valid));
     }
-  }, [formData, props.formType, validateEmail, resetRules]);
+  }, [formData, props.formType, validateEmail]);
 
   // Handle form input changes
   const handleFormChange = useCallback((event) => {
@@ -99,9 +92,7 @@ const Form = (props) => {
       ...prev,
       [name]: value
     }));
-    // Validate form on every change
-    setTimeout(() => validateForm(), 0);
-  }, [validateForm]);
+  }, []);
 
   // Handle form submission
   const handleUserFormSubmit = useCallback(async (event) => {
@@ -125,20 +116,31 @@ const Form = (props) => {
       props.loginUser(res.data.auth_token);
     } catch (err) {
       console.log(err);
+      if (formType === 'Login') {
+        props.createMessage('User does not exist.', 'danger');
+      }
+      if (formType === 'Register') {
+        props.createMessage('That user already exists.', 'danger');
+      }
     }
-  }, [formData, props.formType, props.loginUser, clearForm]);
+  }, [formData, props.formType, props.loginUser, props.createMessage, clearForm]);
 
   // Clear form on mount
   useEffect(() => {
     clearForm();
-    validateForm();
-  }, [clearForm, validateForm]);
+    resetRules();
+  }, [clearForm]);
 
   // Clear form when formType changes (modern equivalent of componentWillReceiveProps)
   useEffect(() => {
     clearForm();
+    resetRules();
+  }, [props.formType, clearForm]);
+
+  // Validate form when data changes
+  useEffect(() => {
     validateForm();
-  }, [props.formType, clearForm, validateForm]);
+  }, [validateForm]);
 
   if (props.isAuthenticated) {
     return <Navigate to="/" />;
@@ -212,9 +214,8 @@ const Form = (props) => {
               sx={{ mb: 3 }}
             />
             
-            <input
+            <button
               type="submit"
-              value="Submit"
               disabled={!valid}
               style={{
                 width: '100%',
@@ -228,7 +229,9 @@ const Form = (props) => {
                 cursor: valid ? 'pointer' : 'not-allowed',
                 opacity: valid ? 1 : 0.6
               }}
-            />
+            >
+              Submit
+            </button>
           </Box>
         </Paper>
       </Box>

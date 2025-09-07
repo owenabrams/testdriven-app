@@ -6,12 +6,13 @@ import { Container, Box, Typography } from '@mui/material';
 import UsersList from './components/UsersList';
 import About from './components/About';
 import NavBar from './components/NavBar';
-import Form from './components/forms/Form';
+import SimpleForm from './components/forms/SimpleForm';
 import Logout from './components/Logout';
 import UserStatus from './components/UserStatus';
 import Message from './components/Message';
 import ModernDemo from './components/ModernDemo';
 import TestingDemo from './components/TestingDemo';
+import AdminPanel from './components/AdminPanel';
 
 // Hooks
 import { useUsers, useAddUser, useAuthMutations } from './hooks/useUsers';
@@ -75,9 +76,33 @@ const App = () => {
   };
   
   // Login user function for Form component
-  const loginUser = (token) => {
-    login(token);
-    createMessage('Successfully logged in!', 'success');
+  const loginUser = async (token) => {
+    try {
+      // Store token first
+      localStorage.setItem('authToken', token);
+      
+      // Validate token and get user data
+      const response = await fetch(`${process.env.REACT_APP_USERS_SERVICE_URL}/auth/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        // Call login with both token and user data
+        login(token, responseData.data);
+        // Don't create message here - let the form handle it
+      } else {
+        localStorage.removeItem('authToken');
+        throw new Error('Authentication failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      localStorage.removeItem('authToken');
+      createMessage('Login failed. Please try again.', 'error');
+    }
   };
   
   // Logout handler
@@ -134,20 +159,22 @@ const App = () => {
               <Route
                 path="/register"
                 element={
-                  <Form
+                  <SimpleForm
                     formType="Register"
                     isAuthenticated={isAuthenticated}
                     loginUser={loginUser}
+                    createMessage={createMessage}
                   />
                 }
               />
               <Route
                 path="/login"
                 element={
-                  <Form
+                  <SimpleForm
                     formType="Login"
                     isAuthenticated={isAuthenticated}
                     loginUser={loginUser}
+                    createMessage={createMessage}
                   />
                 }
               />
@@ -164,6 +191,12 @@ const App = () => {
                 path="/status"
                 element={
                   <UserStatus isAuthenticated={isAuthenticated} />
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <AdminPanel />
                 }
               />
             </Routes>

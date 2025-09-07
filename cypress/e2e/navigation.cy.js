@@ -17,8 +17,8 @@ describe('Navigation', () => {
       .click()
       .url()
       .should('include', '/about')
-      .get('h2')
-      .should('contain', 'About');
+      .get('h1')
+      .should('contain', 'About TestDriven.io');
   });
 
   it('should navigate to demo page', () => {
@@ -27,8 +27,8 @@ describe('Navigation', () => {
       .click()
       .url()
       .should('include', '/demo')
-      .get('h3')
-      .should('contain', 'Modern React Patterns');
+      .get('h1')
+      .should('contain', 'Modern React Patterns Demo');
   });
 
   it('should navigate to testing page', () => {
@@ -37,17 +37,16 @@ describe('Navigation', () => {
       .click()
       .url()
       .should('include', '/testing')
-      .get('h3')
+      .get('h1')
       .should('contain', 'Modern Testing Patterns Implementation');
   });
 
   it('should navigate back to home', () => {
     cy.visit('/about')
-      .get('a[href="/"]')
-      .click()
+      .get('a').contains('TestDriven').first().click()
       .url()
       .should('eq', Cypress.config().baseUrl + '/')
-      .get('h2')
+      .get('h1')
       .should('contain', 'All Users');
   });
 });

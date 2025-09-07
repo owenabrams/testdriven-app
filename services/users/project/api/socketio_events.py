@@ -53,7 +53,7 @@ def handle_send_message(data):
     username = data.get('username', 'Anonymous')
     message = data.get('message', '')
     timestamp = data.get('timestamp')
-    
+
     if message.strip():
         emit('new_message', {
             'username': username,
@@ -105,14 +105,14 @@ def broadcast_user_added(user_data):
         'timestamp': user_data.get('created_date'),
         'type': 'user_update'
     }, room='dashboard')
-    
+
     # Also send as notification
     socketio.emit('notification', {
         'message': f'🆕 New user: {user_data.get("username")}',
         'type': 'success',
         'category': 'user_updates'
     }, room='notifications_all')
-    
+
     socketio.emit('notification', {
         'message': f'🆕 New user: {user_data.get("username")}',
         'type': 'success',
@@ -137,7 +137,7 @@ def broadcast_system_notification(message, notification_type='info'):
         'category': 'system',
         'timestamp': None
     }, room='notifications_all')
-    
+
     socketio.emit('notification', {
         'message': message,
         'type': notification_type,

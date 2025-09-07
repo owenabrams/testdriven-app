@@ -36,12 +36,12 @@ class UsersList(Resource):
     def post(self, resp):
         post_data = request.get_json()
         response_object = {"status": "fail", "message": "Invalid payload."}
-        
+
         # Check if user is admin
         if not is_admin(resp):
             response_object['message'] = 'You do not have permission to do that.'
             return response_object, 401
-            
+
         if not post_data:
             return response_object, 400
         username = post_data.get("username")

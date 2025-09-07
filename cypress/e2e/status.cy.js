@@ -24,7 +24,7 @@ describe('Status', () => {
       .get('input[name="username"]').type(username)
       .get('input[name="email"]').type(email)
       .get('input[name="password"]').type(password)
-      .get('input[type="submit"]').click();
+      .get('button[type="submit"]').click();
 
     cy.wait(500);
 
@@ -37,10 +37,8 @@ describe('Status', () => {
     cy.get('li').contains(username);
     
     // Check that authenticated navigation is available
-    cy.get('button[aria-label="menu"]').click();
-    cy.get('.MuiDrawer-paper').within(() => {
-      cy.contains('User Status').should('be.visible');
-      cy.contains('Logout').should('be.visible');
-    });
+    cy.get('button').contains('User Menu').click();
+    cy.get('a[href="/status"]').should('be.visible');
+    cy.get('a[href="/logout"]').should('be.visible');
   });
 });

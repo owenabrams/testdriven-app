@@ -120,6 +120,10 @@ const NavBar = ({ title = "TestDriven.io", logoutUser, isAuthenticated }) => {
               <AccountCircleIcon sx={{ mr: 1 }} />
               User Status
             </MenuItem>
+            <MenuItem component={Link} to="/admin" onClick={handleUserMenuClose}>
+              <AccountCircleIcon sx={{ mr: 1 }} />
+              Admin Panel
+            </MenuItem>
             <MenuItem component={Link} to="/logout" onClick={handleUserMenuClose}>
               <LogoutIcon sx={{ mr: 1 }} />
               Logout

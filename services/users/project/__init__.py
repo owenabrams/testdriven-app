@@ -36,10 +36,12 @@ def create_app(script_info=None):
 
     # register blueprints
     from project.api.users import users_blueprint
+    from project.api.auth import auth_blueprint
+    from project.api.admin import admin_blueprint
 
     app.register_blueprint(users_blueprint)
-    from project.api.auth import auth_blueprint
     app.register_blueprint(auth_blueprint)
+    app.register_blueprint(admin_blueprint)
 
     # register socketio events for real-time features
     from project.api import socketio_events

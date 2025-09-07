@@ -40,16 +40,251 @@ def recreate_db():
 @cli.command('seed_db')
 def seed_db():
     """Seeds the database."""
-    db.session.add(User(
+    from project.api.models import Service, ServiceAdmin, UserServicePermission
+    
+    # Create regular users
+    user1 = User(
         username='michael',
         email='michael@reallynotreal.com',
         password='greaterthaneight'
-    ))
-    db.session.add(User(
+    )
+    user2 = User(
         username='michaelherman',
         email='michael@mherman.org',
         password='greaterthaneight'
-    ))
+    )
+    
+    db.session.add(user1)
+    db.session.add(user2)
+    
+    # Create sample services
+    users_service = Service(
+        name='users',
+        description='User management service',
+        endpoint_url='http://localhost:5000'
+    )
+    
+    orders_service = Service(
+        name='orders',
+        description='Order management service',
+        endpoint_url='http://localhost:5001'
+    )
+    
+    products_service = Service(
+        name='products',
+        description='Product catalog service',
+        endpoint_url='http://localhost:5002'
+    )
+    
+    db.session.add(users_service)
+    db.session.add(orders_service)
+    db.session.add(products_service)
+    
+    db.session.commit()
+
+
+@cli.command('create_super_admin')
+def create_super_admin():
+    """Creates a super admin user."""
+    username = input("Enter super admin username: ")
+    email = input("Enter super admin email: ")
+    password = input("Enter super admin password: ")
+    
+    # Check if user already exists
+    existing_user = User.query.filter(
+        (User.username == username) | (User.email == email)
+    ).first()
+    
+    if existing_user:
+        print(f"❌ User with username '{username}' or email '{email}' already exists!")
+        return
+    
+    # Create super admin
+    super_admin = User(
+        username=username,
+        email=email,
+        password=password
+    )
+    super_admin.role = 'super_admin'
+    super_admin.is_super_admin = True
+    super_admin.admin = True
+    
+    db.session.add(super_admin)
+    db.session.commit()
+    
+    print(f"✅ Super admin '{username}' created successfully!")
+    print(f"   Email: {email}")
+    print(f"   Role: Super Admin")
+    print(f"   Access: Full system access")
+
+
+@cli.command('create_service_admin')
+def create_service_admin():
+    """Creates a service admin user."""
+    from project.api.models import Service, ServiceAdmin
+    
+    username = input("Enter service admin username: ")
+    email = input("Enter service admin email: ")
+    password = input("Enter service admin password: ")
+    
+    # Show available services
+    services = Service.query.all()
+    if not services:
+        print("❌ No services found! Please seed the database first.")
+        return
+    
+    print("\nAvailable services:")
+    for i, service in enumerate(services, 1):
+        print(f"  {i}. {service.name} - {service.description}")
+    
+    service_choice = input("\nEnter service number to manage: ")
+    try:
+        service_index = int(service_choice) - 1
+        selected_service = services[service_index]
+    except (ValueError, IndexError):
+        print("❌ Invalid service selection!")
+        return
+    
+    # Check if user already exists
+    existing_user = User.query.filter(
+        (User.username == username) | (User.email == email)
+    ).first()
+    
+    if existing_user:
+        print(f"❌ User with username '{username}' or email '{email}' already exists!")
+        return
+    
+    # Create service admin
+    service_admin = User(
+        username=username,
+        email=email,
+        password=password
+    )
+    service_admin.role = 'service_admin'
+    service_admin.admin = True
+    
+    db.session.add(service_admin)
+    db.session.commit()
+    
+    # Assign service admin role
+    admin_assignment = ServiceAdmin(
+        user_id=service_admin.id,
+        service_id=selected_service.id
+    )
+    
+    db.session.add(admin_assignment)
+    db.session.commit()
+    
+    print(f"✅ Service admin '{username}' created successfully!")
+    print(f"   Email: {email}")
+    print(f"   Role: Service Admin")
+    print(f"   Manages: {selected_service.name}")
+
+
+@cli.command('list_admins')
+def list_admins():
+    """Lists all admin users in the system."""
+    from project.api.models import Service, ServiceAdmin
+    
+    print("🔐 ADMIN USERS")
+    print("=" * 50)
+    
+    # Super Admins
+    super_admins = User.query.filter_by(is_super_admin=True).all()
+    if super_admins:
+        print("\n👑 SUPER ADMINS:")
+        for admin in super_admins:
+            print(f"   • {admin.username} ({admin.email})")
+    
+    # Service Admins
+    service_admins = User.query.filter_by(role='service_admin').all()
+    if service_admins:
+        print("\n🛠️  SERVICE ADMINS:")
+        for admin in service_admins:
+            managed_services = [sa.service.name for sa in admin.managed_services]
+            services_str = ", ".join(managed_services) if managed_services else "None"
+            print(f"   • {admin.username} ({admin.email}) - Manages: {services_str}")
+    
+    # Regular Admins (legacy)
+    regular_admins = User.query.filter_by(admin=True, is_super_admin=False, role='user').all()
+    if regular_admins:
+        print("\n📋 LEGACY ADMINS:")
+        for admin in regular_admins:
+            print(f"   • {admin.username} ({admin.email})")
+    
+    print(f"\nTotal admin users: {len(super_admins) + len(service_admins) + len(regular_admins)}")
+
+
+@cli.command('grant_service_access')
+def grant_service_access():
+    """Grant a user access to a service."""
+    from project.api.models import Service, UserServicePermission
+    
+    # Show users
+    users = User.query.filter_by(role='user').all()
+    if not users:
+        print("❌ No regular users found!")
+        return
+    
+    print("Available users:")
+    for i, user in enumerate(users, 1):
+        print(f"  {i}. {user.username} ({user.email})")
+    
+    user_choice = input("\nEnter user number: ")
+    try:
+        user_index = int(user_choice) - 1
+        selected_user = users[user_index]
+    except (ValueError, IndexError):
+        print("❌ Invalid user selection!")
+        return
+    
+    # Show services
+    services = Service.query.all()
+    print("\nAvailable services:")
+    for i, service in enumerate(services, 1):
+        print(f"  {i}. {service.name} - {service.description}")
+    
+    service_choice = input("\nEnter service number: ")
+    try:
+        service_index = int(service_choice) - 1
+        selected_service = services[service_index]
+    except (ValueError, IndexError):
+        print("❌ Invalid service selection!")
+        return
+    
+    # Get permissions
+    print("\nAvailable permissions:")
+    print("  1. read")
+    print("  2. read,write")
+    print("  3. read,write,delete")
+    
+    perm_choice = input("Enter permission level (1-3): ")
+    perm_map = {
+        '1': 'read',
+        '2': 'read,write',
+        '3': 'read,write,delete'
+    }
+    
+    permissions = perm_map.get(perm_choice, 'read')
+    
+    # Check if permission already exists
+    existing_perm = UserServicePermission.query.filter_by(
+        user_id=selected_user.id,
+        service_id=selected_service.id
+    ).first()
+    
+    if existing_perm:
+        existing_perm.permissions = permissions
+        print(f"✅ Updated permissions for {selected_user.username} on {selected_service.name}")
+    else:
+        new_perm = UserServicePermission(
+            user_id=selected_user.id,
+            service_id=selected_service.id,
+            permissions=permissions
+        )
+        db.session.add(new_perm)
+        print(f"✅ Granted {permissions} access to {selected_user.username} for {selected_service.name}")
+    
     db.session.commit()
 
 

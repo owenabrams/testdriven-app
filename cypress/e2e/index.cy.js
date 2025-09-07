@@ -12,12 +12,8 @@ describe('Index', () => {
     cy.get('a').contains('Register').should('be.visible');
     cy.get('a').contains('Login').should('be.visible');
     
-    // Check mobile menu
-    cy.get('button[aria-label="menu"]').click();
-    cy.get('.MuiDrawer-paper').within(() => {
-      cy.contains('Register').should('be.visible');
-      cy.contains('Login').should('be.visible');
-    });
+    // Check that user menu button is not visible when not authenticated
+    cy.get('button').contains('User Menu').should('not.exist');
   });
 
   it('should display the users table', () => {

@@ -32,14 +32,66 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (token) {
-      // You could validate the token here
-      dispatch({ type: 'LOGIN', payload: { token } });
+      // Validate token by checking user status
+      const validateToken = async () => {
+        try {
+          const response = await fetch(`${process.env.REACT_APP_USERS_SERVICE_URL}/auth/status`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const responseData = await response.json();
+            dispatch({ type: 'LOGIN', payload: responseData.data });
+          } else {
+            // Token is invalid, remove it
+            localStorage.removeItem('authToken');
+            dispatch({ type: 'LOGOUT' });
+          }
+        } catch (error) {
+          console.error('Token validation failed:', error);
+          localStorage.removeItem('authToken');
+          dispatch({ type: 'LOGOUT' });
+        }
+      };
+      
+      validateToken();
     }
   }, []);
   
-  const login = (token, user) => {
+  const login = (token, user = null) => {
     localStorage.setItem('authToken', token);
-    dispatch({ type: 'LOGIN', payload: user });
+    if (user) {
+      dispatch({ type: 'LOGIN', payload: user });
+    } else {
+      // If no user data provided, fetch it
+      const validateToken = async () => {
+        try {
+          const response = await fetch(`${process.env.REACT_APP_USERS_SERVICE_URL}/auth/status`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const responseData = await response.json();
+            dispatch({ type: 'LOGIN', payload: responseData.data });
+          } else {
+            localStorage.removeItem('authToken');
+            dispatch({ type: 'LOGOUT' });
+          }
+        } catch (error) {
+          console.error('Token validation failed:', error);
+          localStorage.removeItem('authToken');
+          dispatch({ type: 'LOGOUT' });
+        }
+      };
+      
+      validateToken();
+    }
   };
   
   const logout = () => {

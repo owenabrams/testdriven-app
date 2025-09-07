@@ -14,7 +14,7 @@ def add_user(username, email, password='greaterthaneight'):
 
 def add_admin(username, email, password='greaterthaneight'):
     user = User(
-        username=username, 
+        username=username,
         email=email,
         password=password
     )

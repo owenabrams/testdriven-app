@@ -32,8 +32,8 @@ describe('Authentication', () => {
 
     // Should redirect and show success message
     cy.url().should('eq', Cypress.config().baseUrl + '/')
-      .get('.MuiAlert-message')
-      .should('contain', 'Successfully registered');
+      .get('.notification.is-success')
+      .should('contain', 'Welcome!');
   });
 
   it('should allow a user to login', () => {

@@ -52,3 +52,14 @@ def authenticate_restful(f):
 def is_admin(user_id):
     user = User.query.filter_by(id=user_id).first()
     return user.admin
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(user_id, *args, **kwargs):
+        user = User.query.filter_by(id=user_id).first()
+        if not user or not (user.admin or user.is_super_admin):
+            return jsonify({'status': 'fail', 'message': 'Admin access required.'}), 403
+
+        return f(user_id, *args, **kwargs)
+    return decorated_function
