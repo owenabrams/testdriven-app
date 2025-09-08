@@ -49,6 +49,40 @@ echo "🗄️  Initializing database..."
 python manage.py recreate_db
 python manage.py seed_db
 
+# Seed enhanced demo data
+echo "🌱 Seeding enhanced demo data (Sarah, Mary, Grace, Alice, Jane, etc.)..."
+python seed_demo_data.py
+
+# Create super admin for testing
+echo "👑 Creating super admin..."
+echo -e "superadmin\nsuperadmin@testdriven.io\nsuperpassword123" | python manage.py create_super_admin
+
+# Create service admin for savings groups
+echo "🔧 Creating service admin..."
+python -c "
+from project import create_app, db
+from project.api.models import User
+import os
+os.environ.setdefault('APP_SETTINGS', 'project.config.DevelopmentConfig')
+os.environ.setdefault('DATABASE_URL', 'sqlite:///app.db')
+os.environ.setdefault('SECRET_KEY', 'dev-secret-key')
+app, _ = create_app()
+with app.app_context():
+    admin = User.query.filter_by(email='admin@savingsgroups.ug').first()
+    if not admin:
+        admin = User(
+            username='savingsadmin',
+            email='admin@savingsgroups.ug',
+            password='admin123',
+            admin=True
+        )
+        db.session.add(admin)
+        db.session.commit()
+        print('✅ Service admin created: admin@savingsgroups.ug / admin123')
+    else:
+        print('✅ Service admin already exists')
+"
+
 echo ""
 echo "🎯 Backend setup complete!"
 echo "   Flask API will run on: http://localhost:5000"

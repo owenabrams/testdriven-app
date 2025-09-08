@@ -18,7 +18,7 @@ class BaseConfig:
 class DevelopmentConfig(BaseConfig):
     """Development configuration"""
 
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///dev.db")
     DEBUG = False  # Disabled to prevent CSP conflicts with React PWA
     BCRYPT_LOG_ROUNDS = 4
 

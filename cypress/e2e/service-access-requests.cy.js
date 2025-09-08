@@ -11,7 +11,7 @@ describe('Service Access Request System', () => {
 
   beforeEach(() => {
     cy.clearLocalStorage();
-    
+
     // Create unique test user for each test
     testUser = {
       username: randomstring.generate(),
@@ -24,7 +24,7 @@ describe('Service Access Request System', () => {
     it('should allow users to request service access via API', () => {
       // First register and login user
       cy.register(testUser.username, testUser.email, testUser.password);
-      
+
       // Get auth token
       cy.request({
         method: 'POST',
@@ -36,7 +36,7 @@ describe('Service Access Request System', () => {
       }).then((response) => {
         expect(response.status).to.eq(200);
         authToken = response.body.auth_token;
-        
+
         // Request access to users service (service_id: 1)
         cy.request({
           method: 'POST',
@@ -60,7 +60,7 @@ describe('Service Access Request System', () => {
     it('should allow users to view their own access requests', () => {
       // Register and login user
       cy.register(testUser.username, testUser.email, testUser.password);
-      
+
       // Get auth token and make request
       cy.request({
         method: 'POST',
@@ -71,7 +71,7 @@ describe('Service Access Request System', () => {
         }
       }).then((response) => {
         authToken = response.body.auth_token;
-        
+
         // First create an access request
         cy.request({
           method: 'POST',
@@ -85,7 +85,7 @@ describe('Service Access Request System', () => {
             reason: 'Need write access for data management'
           }
         });
-        
+
         // Then fetch user's requests
         cy.request({
           method: 'GET',
@@ -97,7 +97,7 @@ describe('Service Access Request System', () => {
           expect(requestsResponse.status).to.eq(200);
           expect(requestsResponse.body.data.requests).to.be.an('array');
           expect(requestsResponse.body.data.requests.length).to.be.greaterThan(0);
-          
+
           const request = requestsResponse.body.data.requests[0];
           expect(request.requested_permissions).to.eq('read,write');
           expect(request.reason).to.eq('Need write access for data management');
@@ -109,7 +109,7 @@ describe('Service Access Request System', () => {
     it('should prevent duplicate access requests', () => {
       // Register and login user
       cy.register(testUser.username, testUser.email, testUser.password);
-      
+
       cy.request({
         method: 'POST',
         url: `${Cypress.env('REACT_APP_USERS_SERVICE_URL') || 'http://localhost:5000'}/auth/login`,
@@ -119,7 +119,7 @@ describe('Service Access Request System', () => {
         }
       }).then((response) => {
         authToken = response.body.auth_token;
-        
+
         // First request
         cy.request({
           method: 'POST',
@@ -134,7 +134,7 @@ describe('Service Access Request System', () => {
           }
         }).then((firstResponse) => {
           expect(firstResponse.status).to.eq(201);
-          
+
           // Second request (should fail)
           cy.request({
             method: 'POST',
@@ -179,7 +179,7 @@ describe('Service Access Request System', () => {
     it('should allow super admin to approve access requests', () => {
       // Register user and create request
       cy.register(testUser.username, testUser.email, testUser.password);
-      
+
       cy.request({
         method: 'POST',
         url: `${Cypress.env('REACT_APP_USERS_SERVICE_URL') || 'http://localhost:5000'}/auth/login`,
@@ -189,7 +189,7 @@ describe('Service Access Request System', () => {
         }
       }).then((response) => {
         userToken = response.body.auth_token;
-        
+
         // Create access request
         cy.request({
           method: 'POST',
@@ -203,7 +203,7 @@ describe('Service Access Request System', () => {
             reason: 'Need to view order data'
           }
         }).then(() => {
-          
+
           // Super admin fetches pending requests
           cy.request({
             method: 'GET',
@@ -217,7 +217,7 @@ describe('Service Access Request System', () => {
             const userRequest = requests.find(r => r.user.email === testUser.email);
             expect(userRequest).to.exist;
             requestId = userRequest.id;
-            
+
             // Approve the request
             cy.request({
               method: 'POST',
@@ -237,7 +237,7 @@ describe('Service Access Request System', () => {
     it('should allow super admin to reject access requests', () => {
       // Register user and create request
       cy.register(testUser.username, testUser.email, testUser.password);
-      
+
       cy.request({
         method: 'POST',
         url: `${Cypress.env('REACT_APP_USERS_SERVICE_URL') || 'http://localhost:5000'}/auth/login`,
@@ -247,7 +247,7 @@ describe('Service Access Request System', () => {
         }
       }).then((response) => {
         userToken = response.body.auth_token;
-        
+
         // Create access request
         cy.request({
           method: 'POST',
@@ -261,7 +261,7 @@ describe('Service Access Request System', () => {
             reason: 'Need full access to products'
           }
         }).then(() => {
-          
+
           // Super admin fetches and rejects request
           cy.request({
             method: 'GET',
@@ -273,7 +273,7 @@ describe('Service Access Request System', () => {
             const requests = requestsResponse.body.data.requests;
             const userRequest = requests.find(r => r.user.email === testUser.email);
             requestId = userRequest.id;
-            
+
             // Reject the request
             cy.request({
               method: 'POST',
@@ -298,7 +298,7 @@ describe('Service Access Request System', () => {
     it('should prevent non-admin users from accessing admin endpoints', () => {
       // Register regular user
       cy.register(testUser.username, testUser.email, testUser.password);
-      
+
       cy.request({
         method: 'POST',
         url: `${Cypress.env('REACT_APP_USERS_SERVICE_URL') || 'http://localhost:5000'}/auth/login`,
@@ -308,7 +308,7 @@ describe('Service Access Request System', () => {
         }
       }).then((response) => {
         const userToken = response.body.auth_token;
-        
+
         // Try to access admin endpoints
         cy.request({
           method: 'GET',
@@ -321,7 +321,7 @@ describe('Service Access Request System', () => {
           expect(adminResponse.status).to.eq(403);
           expect(adminResponse.body.message).to.contain('Super admin access required');
         });
-        
+
         // Try to approve requests
         cy.request({
           method: 'POST',
@@ -345,7 +345,7 @@ describe('Service Access Request System', () => {
       }).then((response) => {
         expect(response.status).to.eq(403);
       });
-      
+
       cy.request({
         method: 'POST',
         url: `${Cypress.env('REACT_APP_USERS_SERVICE_URL') || 'http://localhost:5000'}/services/request-access`,

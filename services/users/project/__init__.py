@@ -38,10 +38,16 @@ def create_app(script_info=None):
     from project.api.users import users_blueprint
     from project.api.auth import auth_blueprint
     from project.api.admin import admin_blueprint
+    from project.api.notifications import notifications_blueprint
+    from project.api.savings_groups import savings_groups_blueprint
+    from project.api.calendar import calendar_blueprint
 
     app.register_blueprint(users_blueprint)
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(admin_blueprint)
+    app.register_blueprint(notifications_blueprint)
+    app.register_blueprint(savings_groups_blueprint)
+    app.register_blueprint(calendar_blueprint)
 
     # register socketio events for real-time features
     from project.api import socketio_events
