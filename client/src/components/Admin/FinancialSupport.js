@@ -45,7 +45,7 @@ import {
   History,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { savingsGroupsAPI } from '../../services/api';
+import savingsGroupsAPI from '../../services/savingsGroupsAPI';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 

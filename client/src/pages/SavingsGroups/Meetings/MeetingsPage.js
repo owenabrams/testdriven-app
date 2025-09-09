@@ -11,11 +11,11 @@ export default function MeetingsPage({ membershipData, userRole }) {
 
   return (
     <Box>
-      <Typography variant=\"h5\" gutterBottom>Meetings</Typography>
+      <Typography variant="h5" gutterBottom>Meetings</Typography>
       
       <Card>
         <CardContent>
-          <Typography variant=\"h6\" gutterBottom>Meeting History</Typography>
+          <Typography variant="h6" gutterBottom>Meeting History</Typography>
           <List>
             {mockMeetings.map((meeting, index) => (
               <ListItem key={index}>

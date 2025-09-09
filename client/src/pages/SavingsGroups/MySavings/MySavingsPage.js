@@ -103,7 +103,7 @@ export default function MySavingsPage({ membershipData, userRole }) {
   if (isLoading) {
     return (
       <Box>
-        <Typography variant=\"h5\" gutterBottom>My Savings</Typography>
+        <Typography variant="h5" gutterBottom>My Savings</Typography>
         <LinearProgress />
       </Box>
     );
@@ -111,10 +111,10 @@ export default function MySavingsPage({ membershipData, userRole }) {
 
   return (
     <Box>
-      <Box display=\"flex\" justifyContent=\"space-between\" alignItems=\"center\" mb={3}>
-        <Typography variant=\"h5\">My Savings</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h5">My Savings</Typography>
         <Button
-          variant=\"contained\"
+          variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setDialogOpen(true)}
         >
@@ -123,8 +123,8 @@ export default function MySavingsPage({ membershipData, userRole }) {
       </Box>
 
       <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 3 }}>
-        <Tab label=\"Savings Overview\" />
-        <Tab label=\"Transaction History\" />
+        <Tab label="Savings Overview" />
+        <Tab label="Transaction History" />
       </Tabs>
 
       {tabValue === 0 && (
@@ -140,41 +140,41 @@ export default function MySavingsPage({ membershipData, userRole }) {
               <Grid item xs={12} sm={6} md={6} key={type}>
                 <Card>
                   <CardContent>
-                    <Box display=\"flex\" alignItems=\"center\" mb={2}>
-                      <SavingsIcon color=\"primary\" sx={{ mr: 1 }} />
-                      <Typography variant=\"h6\">{savingType.name}</Typography>
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <SavingsIcon color="primary" sx={{ mr: 1 }} />
+                      <Typography variant="h6">{savingType.name}</Typography>
                     </Box>
 
-                    <Typography variant=\"h4\" color=\"primary\" gutterBottom>
+                    <Typography variant="h4" color="primary" gutterBottom>
                       UGX {data.balance.toLocaleString()}
                     </Typography>
 
-                    <Typography variant=\"body2\" color=\"text.secondary\" gutterBottom>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
                       {savingType.description}
                     </Typography>
 
                     {data.target > 0 && (
                       <Box mt={2}>
-                        <Box display=\"flex\" justifyContent=\"space-between\" mb={1}>
-                          <Typography variant=\"body2\">Progress to Target</Typography>
-                          <Typography variant=\"body2\">{progress.toFixed(1)}%</Typography>
+                        <Box display="flex" justifyContent="space-between" mb={1}>
+                          <Typography variant="body2">Progress to Target</Typography>
+                          <Typography variant="body2">{progress.toFixed(1)}%</Typography>
                         </Box>
                         <LinearProgress
-                          variant=\"determinate\"
+                          variant="determinate"
                           value={Math.min(progress, 100)}
                           sx={{ height: 8, borderRadius: 4 }}
                         />
-                        <Typography variant=\"caption\" color=\"text.secondary\" sx={{ mt: 1, display: 'block' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                           Target: UGX {data.target.toLocaleString()}
                         </Typography>
                       </Box>
                     )}
 
-                    <Box display=\"flex\" justifyContent=\"space-between\" alignItems=\"center\" mt={2}>
-                      <Typography variant=\"body2\" color=\"text.secondary\">
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+                      <Typography variant="body2" color="text.secondary">
                         {data.transactions} transactions
                       </Typography>
-                      <TrendingUpIcon color=\"success\" fontSize=\"small\" />
+                      <TrendingUpIcon color="success" fontSize="small" />
                     </Box>
                   </CardContent>
                 </Card>
@@ -186,40 +186,40 @@ export default function MySavingsPage({ membershipData, userRole }) {
           <Grid item xs={12}>
             <Card>
               <CardContent>
-                <Typography variant=\"h6\" gutterBottom>
+                <Typography variant="h6" gutterBottom>
                   Total Savings Summary
                 </Typography>
                 
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={4}>
-                    <Box textAlign=\"center\">
-                      <Typography variant=\"h4\" color=\"primary\">
+                    <Box textAlign="center">
+                      <Typography variant="h4" color="primary">
                         UGX {Object.values(mockSavingsData).reduce((sum, data) => sum + data.balance, 0).toLocaleString()}
                       </Typography>
-                      <Typography variant=\"body2\" color=\"text.secondary\">
+                      <Typography variant="body2" color="text.secondary">
                         Total Balance
                       </Typography>
                     </Box>
                   </Grid>
                   
                   <Grid item xs={12} sm={4}>
-                    <Box textAlign=\"center\">
-                      <Typography variant=\"h4\" color=\"success.main\">
+                    <Box textAlign="center">
+                      <Typography variant="h4" color="success.main">
                         {Object.values(mockSavingsData).reduce((sum, data) => sum + data.transactions, 0)}
                       </Typography>
-                      <Typography variant=\"body2\" color=\"text.secondary\">
+                      <Typography variant="body2" color="text.secondary">
                         Total Transactions
                       </Typography>
                     </Box>
                   </Grid>
                   
                   <Grid item xs={12} sm={4}>
-                    <Box textAlign=\"center\">
-                      <Typography variant=\"h4\" color=\"info.main\">
+                    <Box textAlign="center">
+                      <Typography variant="h4" color="info.main">
                         {((Object.values(mockSavingsData).reduce((sum, data) => sum + data.balance, 0) / 
                            Object.values(mockSavingsData).reduce((sum, data) => sum + data.target, 0)) * 100).toFixed(1)}%
                       </Typography>
-                      <Typography variant=\"body2\" color=\"text.secondary\">
+                      <Typography variant="body2" color="text.secondary">
                         Overall Progress
                       </Typography>
                     </Box>
@@ -234,12 +234,12 @@ export default function MySavingsPage({ membershipData, userRole }) {
       {tabValue === 1 && (
         <Card>
           <CardContent>
-            <Box display=\"flex\" alignItems=\"center\" mb={2}>
+            <Box display="flex" alignItems="center" mb={2}>
               <HistoryIcon sx={{ mr: 1 }} />
-              <Typography variant=\"h6\">Transaction History</Typography>
+              <Typography variant="h6">Transaction History</Typography>
             </Box>
 
-            <TableContainer component={Paper} variant=\"outlined\">
+            <TableContainer component={Paper} variant="outlined">
               <Table>
                 <TableHead>
                   <TableRow>
@@ -258,8 +258,8 @@ export default function MySavingsPage({ membershipData, userRole }) {
                       <TableCell>
                         <Chip 
                           label={transaction.type} 
-                          size=\"small\" 
-                          variant=\"outlined\"
+                          size="small" 
+                          variant="outlined"
                           color={transaction.type === 'PERSONAL' ? 'primary' : 'secondary'}
                         />
                       </TableCell>
@@ -270,7 +270,7 @@ export default function MySavingsPage({ membershipData, userRole }) {
                         <Chip
                           label={transaction.status}
                           color={transaction.status === 'VERIFIED' ? 'success' : 'warning'}
-                          size=\"small\"
+                          size="small"
                         />
                       </TableCell>
                     </TableRow>
@@ -283,16 +283,16 @@ export default function MySavingsPage({ membershipData, userRole }) {
       )}
 
       {/* Record Savings Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth=\"sm\" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Record New Savings</DialogTitle>
         <DialogContent>
-          <Box component=\"form\" onSubmit={handleSubmit(handleRecordSavings)} sx={{ mt: 2 }}>
+          <Box component="form" onSubmit={handleSubmit(handleRecordSavings)} sx={{ mt: 2 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label=\"Amount (UGX)\"
-                  type=\"number\"
+                  label="Amount (UGX)"
+                  type="number"
                   {...register('amount', { 
                     required: 'Amount is required',
                     min: { value: 1000, message: 'Minimum amount is UGX 1,000' }
@@ -306,7 +306,7 @@ export default function MySavingsPage({ membershipData, userRole }) {
                 <TextField
                   fullWidth
                   select
-                  label=\"Saving Type\"
+                  label="Saving Type"
                   {...register('saving_type', { required: 'Saving type is required' })}
                   error={!!errors.saving_type}
                   helperText={errors.saving_type?.message}
@@ -323,42 +323,42 @@ export default function MySavingsPage({ membershipData, userRole }) {
                 <TextField
                   fullWidth
                   select
-                  label=\"Payment Method\"
+                  label="Payment Method"
                   {...register('method', { required: 'Payment method is required' })}
                   error={!!errors.method}
                   helperText={errors.method?.message}
                 >
-                  <MenuItem value=\"CASH\">Cash</MenuItem>
-                  <MenuItem value=\"MTN\">MTN Mobile Money</MenuItem>
-                  <MenuItem value=\"AIRTEL\">Airtel Money</MenuItem>
+                  <MenuItem value="CASH">Cash</MenuItem>
+                  <MenuItem value="MTN">MTN Mobile Money</MenuItem>
+                  <MenuItem value="AIRTEL">Airtel Money</MenuItem>
                 </TextField>
               </Grid>
               
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label=\"Mobile Money Transaction ID\"
+                  label="Mobile Money Transaction ID"
                   {...register('transaction_id')}
-                  placeholder=\"Enter transaction ID for mobile money payments\"
-                  helperText=\"Required for mobile money payments\"
+                  placeholder="Enter transaction ID for mobile money payments"
+                  helperText="Required for mobile money payments"
                 />
               </Grid>
               
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label=\"Notes (Optional)\"
+                  label="Notes (Optional)"
                   multiline
                   rows={2}
                   {...register('notes')}
-                  placeholder=\"Add any additional notes about this savings\"
+                  placeholder="Add any additional notes about this savings"
                 />
               </Grid>
             </Grid>
           </Box>
 
-          <Alert severity=\"info\" sx={{ mt: 2 }}>
-            <Typography variant=\"body2\">
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <Typography variant="body2">
               Your savings will be pending verification by group officers. 
               You will receive a confirmation once verified.
             </Typography>
@@ -369,7 +369,7 @@ export default function MySavingsPage({ membershipData, userRole }) {
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button 
             onClick={handleSubmit(handleRecordSavings)} 
-            variant=\"contained\"
+            variant="contained"
             disabled={recordSavingsMutation.isLoading}
           >
             {recordSavingsMutation.isLoading ? 'Recording...' : 'Record Savings'}

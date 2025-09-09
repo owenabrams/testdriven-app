@@ -1,0 +1,39 @@
+🧪 NAVIGATION TEST INSTRUCTIONS
+==============================
+
+1. STOP any currently running servers (Ctrl+C)
+
+2. START the corrected application:
+   ./start-local.sh
+
+3. OPEN browser and go to:
+   http://localhost:3000
+
+4. LOGIN with:
+   Email: superadmin@testdriven.io
+   Password: superpassword123
+
+5. LOOK FOR in the left sidebar:
+   - Main menu items (Dashboard, System Admin, etc.)
+   - "MICROSERVICES" section header
+   - "Savings Platform" link under MICROSERVICES
+
+6. CLICK "Savings Platform" to navigate to:
+   http://localhost:3000/savings-groups
+
+7. VERIFY you see:
+   - Savings Groups interface with its own navigation
+   - "Activity Calendar" link in the Savings Groups navigation
+
+8. CLICK "Activity Calendar" to access the filtering system
+
+DIRECT LINKS (if navigation fails):
+- Main App: http://localhost:3000
+- Savings Platform: http://localhost:3000/savings-groups
+- Test Page: file:///Users/abe/Documents/GitHub/testdriven-app/test-navigation-links.html
+
+TROUBLESHOOTING:
+- Clear browser cache if you see old interface
+- Check browser console for errors
+- Ensure you're logged in as super admin
+- Verify correct client is running (should show Material-UI interface)

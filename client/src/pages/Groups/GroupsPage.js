@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { savingsGroupsAPI } from '../../services/api';
+import savingsGroupsAPI from '../../services/savingsGroupsAPI';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import CreateGroupDialog from '../../components/Groups/CreateGroupDialog';
 
@@ -41,17 +41,17 @@ export default function GroupsPage() {
 
   const { data: groups, isLoading, refetch } = useQuery(
     'savings-groups',
-    () => savingsGroupsAPI.getGroups(),
+    () => savingsGroupsAPI.getMockData(),
     {
-      select: (response) => response.data.data || [],
+      select: (response) => response.groups || [],
     }
   );
 
-  const filteredGroups = groups?.filter(group =>
+  const filteredGroups = (groups && Array.isArray(groups)) ? groups.filter(group =>
     group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     group.district?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     group.parish?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  ) : [];
 
   const handleMenuOpen = (event, group) => {
     setAnchorEl(event.currentTarget);

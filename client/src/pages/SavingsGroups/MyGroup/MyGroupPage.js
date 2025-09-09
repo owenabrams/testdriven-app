@@ -3,7 +3,7 @@ import { Box, Typography, Card, CardContent, Grid, List, ListItem, ListItemText,
 
 export default function MyGroupPage({ membershipData, userRole }) {
   const mockGroupData = {
-    name: \"Kampala Women's Cooperative\",
+    name: "Kampala Women's Cooperative",
     members: [
       { name: 'Sarah Nakato', role: 'Chair', balance: 500000 },
       { name: 'Mary Nambi', role: 'Treasurer', balance: 400000 },
@@ -15,13 +15,13 @@ export default function MyGroupPage({ membershipData, userRole }) {
 
   return (
     <Box>
-      <Typography variant=\"h5\" gutterBottom>My Group</Typography>
+      <Typography variant="h5" gutterBottom>My Group</Typography>
       
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Card>
             <CardContent>
-              <Typography variant=\"h6\" gutterBottom>Group Members</Typography>
+              <Typography variant="h6" gutterBottom>Group Members</Typography>
               <List>
                 {mockGroupData.members.map((member, index) => (
                   <ListItem key={index}>
@@ -41,7 +41,7 @@ export default function MyGroupPage({ membershipData, userRole }) {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant=\"h6\" gutterBottom>Group Summary</Typography>
+              <Typography variant="h6" gutterBottom>Group Summary</Typography>
               <Typography>Total Members: {mockGroupData.members.length}</Typography>
               <Typography>Total Balance: UGX {mockGroupData.members.reduce((sum, m) => sum + m.balance, 0).toLocaleString()}</Typography>
             </CardContent>

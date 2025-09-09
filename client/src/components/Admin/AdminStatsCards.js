@@ -29,14 +29,15 @@ export default function AdminStatsCards() {
     }
   );
 
-  // Calculate statistics
-  const totalGroups = groups?.length || 0;
-  const totalMembers = groups?.reduce((sum, group) => sum + (group.member_count || 0), 0) || 0;
-  const totalSavings = groups?.reduce((sum, group) => sum + (group.total_balance || 0), 0) || 0;
-  const activeLoans = groups?.reduce((sum, group) => sum + (group.active_loans_count || 0), 0) || 0;
+  // Calculate statistics with safety checks
+  const safeGroups = Array.isArray(groups) ? groups : [];
+  const totalGroups = safeGroups.length;
+  const totalMembers = safeGroups.reduce((sum, group) => sum + (group.member_count || 0), 0);
+  const totalSavings = safeGroups.reduce((sum, group) => sum + (group.total_balance || 0), 0);
+  const activeLoans = safeGroups.reduce((sum, group) => sum + (group.active_loans_count || 0), 0);
   
   // Calculate groups needing attention (example criteria)
-  const groupsNeedingAttention = groups?.filter(group => 
+  const groupsNeedingAttention = safeGroups.filter(group => 
     group.member_count < 5 || 
     (group.total_balance || 0) < 100 ||
     group.status === 'FORMING'

@@ -47,7 +47,7 @@ import {
   TrendingDown,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { savingsGroupsAPI } from '../../services/api';
+import savingsGroupsAPI from '../../services/savingsGroupsAPI';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 
@@ -76,9 +76,9 @@ export default function GroupOversight() {
   // Fetch all groups
   const { data: groups, isLoading } = useQuery(
     'admin-group-oversight',
-    () => savingsGroupsAPI.getGroups(),
+    () => savingsGroupsAPI.getMockData(),
     {
-      select: (response) => response.data.data || [],
+      select: (response) => response.groups || [],
     }
   );
 

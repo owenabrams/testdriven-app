@@ -10,13 +10,13 @@ export default function TransactionsPage({ membershipData, userRole }) {
 
   return (
     <Box>
-      <Typography variant=\"h5\" gutterBottom>
+      <Typography variant="h5" gutterBottom>
         {userRole === 'group_officer' ? 'All Transactions' : 'My Transactions'}
       </Typography>
       
       <Card>
         <CardContent>
-          <TableContainer component={Paper} variant=\"outlined\">
+          <TableContainer component={Paper} variant="outlined">
             <Table>
               <TableHead>
                 <TableRow>
@@ -38,7 +38,7 @@ export default function TransactionsPage({ membershipData, userRole }) {
                       <Chip
                         label={transaction.status}
                         color={transaction.status === 'Verified' ? 'success' : 'warning'}
-                        size=\"small\"
+                        size="small"
                       />
                     </TableCell>
                   </TableRow>

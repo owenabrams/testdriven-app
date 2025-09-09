@@ -24,7 +24,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { savingsGroupsAPI, campaignsAPI } from '../../services/api';
+import savingsGroupsAPI from '../../services/savingsGroupsAPI';
+import { campaignsAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import StatsCard from '../../components/Dashboard/StatsCard';
 import RecentActivity from '../../components/Dashboard/RecentActivity';
@@ -38,17 +39,17 @@ export default function Dashboard() {
   // Fetch dashboard data
   const { data: groups, isLoading: groupsLoading } = useQuery(
     'dashboard-groups',
-    () => savingsGroupsAPI.getGroups(),
+    () => savingsGroupsAPI.getMockData(),
     {
-      select: (response) => response.data.data || [],
+      select: (response) => response.groups || [],
     }
   );
 
   const { data: campaigns, isLoading: campaignsLoading } = useQuery(
     'dashboard-campaigns',
-    () => campaignsAPI.getCampaigns({ status: 'active' }),
+    () => savingsGroupsAPI.getMockData(),
     {
-      select: (response) => response.data.data || [],
+      select: (response) => response.campaigns || [],
     }
   );
 
@@ -56,18 +57,18 @@ export default function Dashboard() {
     return <LoadingSpinner />;
   }
 
-  const totalGroups = groups?.length || 0;
-  const activeCampaigns = campaigns?.length || 0;
+  const totalGroups = (groups && Array.isArray(groups)) ? groups.length : 0;
+  const activeCampaigns = (campaigns && Array.isArray(campaigns)) ? campaigns.length : 0;
   
   // Calculate total savings across all groups
-  const totalSavings = groups?.reduce((sum, group) => {
+  const totalSavings = (groups && Array.isArray(groups)) ? groups.reduce((sum, group) => {
     return sum + (group.total_balance || 0);
-  }, 0) || 0;
+  }, 0) : 0;
 
   // Calculate active loans
-  const activeLoans = groups?.reduce((sum, group) => {
+  const activeLoans = (groups && Array.isArray(groups)) ? groups.reduce((sum, group) => {
     return sum + (group.active_loans_count || 0);
-  }, 0) || 0;
+  }, 0) : 0;
 
   const stats = [
     {
@@ -89,7 +90,7 @@ export default function Dashboard() {
       value: activeCampaigns.toString(),
       icon: <Campaign />,
       color: 'secondary',
-      change: `${campaigns?.filter(c => c.status === 'voting').length || 0} voting`,
+      change: `${(campaigns && Array.isArray(campaigns)) ? campaigns.filter(c => c.status === 'voting').length : 0} voting`,
     },
     {
       title: 'Active Loans',
@@ -142,7 +143,7 @@ export default function Dashboard() {
                 </Button>
               </Box>
               <List>
-                {groups?.slice(0, 3).map((group) => (
+                {(groups && Array.isArray(groups)) ? groups.slice(0, 3).map((group) => (
                   <ListItem
                     key={group.id}
                     button
@@ -159,7 +160,7 @@ export default function Dashboard() {
                       secondary={`${group.member_count || 0} members • UGX ${(group.total_balance || 0).toLocaleString()}`}
                     />
                   </ListItem>
-                ))}
+                )) : []}
               </List>
               {totalGroups === 0 && (
                 <Box textAlign="center" py={2}>
@@ -195,7 +196,7 @@ export default function Dashboard() {
                 </Button>
               </Box>
               <List>
-                {campaigns?.slice(0, 3).map((campaign) => (
+                {(campaigns && Array.isArray(campaigns)) ? campaigns.slice(0, 3).map((campaign) => (
                   <ListItem key={campaign.id} sx={{ px: 0 }}>
                     <ListItemText
                       primary={
@@ -224,7 +225,7 @@ export default function Dashboard() {
                       }
                     />
                   </ListItem>
-                ))}
+                )) : []}
               </List>
               {activeCampaigns === 0 && (
                 <Box textAlign="center" py={2}>

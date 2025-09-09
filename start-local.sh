@@ -49,39 +49,22 @@ echo "🗄️  Initializing database..."
 python manage.py recreate_db
 python manage.py seed_db
 
-# Seed enhanced demo data
+# Seed enhanced demo data as specified in SAVINGS_PLATFORM_INTEGRATION_GUIDE.md
 echo "🌱 Seeding enhanced demo data (Sarah, Mary, Grace, Alice, Jane, etc.)..."
+echo "   Following SAVINGS_PLATFORM_INTEGRATION_GUIDE.md specifications..."
 python seed_demo_data.py
+
+# Verify seeding matches SAVINGS_PLATFORM_INTEGRATION_GUIDE.md
+echo "🔍 Verifying integration guide compliance..."
+cd ../../
+python verify-integration-guide-seeding.py
+cd services/users
 
 # Create super admin for testing
 echo "👑 Creating super admin..."
 echo -e "superadmin\nsuperadmin@testdriven.io\nsuperpassword123" | python manage.py create_super_admin
 
-# Create service admin for savings groups
-echo "🔧 Creating service admin..."
-python -c "
-from project import create_app, db
-from project.api.models import User
-import os
-os.environ.setdefault('APP_SETTINGS', 'project.config.DevelopmentConfig')
-os.environ.setdefault('DATABASE_URL', 'sqlite:///app.db')
-os.environ.setdefault('SECRET_KEY', 'dev-secret-key')
-app, _ = create_app()
-with app.app_context():
-    admin = User.query.filter_by(email='admin@savingsgroups.ug').first()
-    if not admin:
-        admin = User(
-            username='savingsadmin',
-            email='admin@savingsgroups.ug',
-            password='admin123',
-            admin=True
-        )
-        db.session.add(admin)
-        db.session.commit()
-        print('✅ Service admin created: admin@savingsgroups.ug / admin123')
-    else:
-        print('✅ Service admin already exists')
-"
+# Service admin creation is now handled in seed_demo_data.py
 
 echo ""
 echo "🎯 Backend setup complete!"
@@ -95,7 +78,7 @@ BACKEND_PID=$!
 # Setup frontend
 echo ""
 echo "🔧 Setting up React frontend..."
-cd ../../services/client
+cd ../../client
 
 # Install dependencies if node_modules doesn't exist
 if [ ! -d "node_modules" ]; then
@@ -117,6 +100,14 @@ echo "✅ TestDriven App is starting up!"
 echo "================================="
 echo "🌐 Frontend: http://localhost:3000"
 echo "🔌 Backend:  http://localhost:5000"
+echo ""
+echo "📋 Demo Users (as per SAVINGS_PLATFORM_INTEGRATION_GUIDE.md):"
+echo "   Super Admin: superadmin@testdriven.io / superpassword123"
+echo "   Service Admin: admin@savingsgroups.ug / admin123"
+echo "   Group Officer: sarah@kampala.ug / password123"
+echo "   Group Member: alice@kampala.ug / password123"
+echo ""
+echo "🎯 Access Savings Platform: http://localhost:3000/savings-groups"
 echo ""
 echo "Press Ctrl+C to stop both servers"
 

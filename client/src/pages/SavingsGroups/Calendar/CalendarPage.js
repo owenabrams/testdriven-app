@@ -47,7 +47,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, isSameDay, isSameMonth } from 'date-fns';
 
-import { savingsGroupsAPI } from '../../../services/savingsGroupsAPI';
+import savingsGroupsAPI from '../../../services/savingsGroupsAPI';
 
 const CalendarPage = () => {
   const [events, setEvents] = useState([]);

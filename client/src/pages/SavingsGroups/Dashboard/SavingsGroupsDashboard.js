@@ -49,7 +49,7 @@ export default function SavingsGroupsDashboard({ userRole, membershipData }) {
   if (isLoading) {
     return (
       <Box>
-        <Typography variant=\"h4\" gutterBottom>
+        <Typography variant="h4" gutterBottom>
           Loading Dashboard...
         </Typography>
         <LinearProgress />
@@ -60,14 +60,14 @@ export default function SavingsGroupsDashboard({ userRole, membershipData }) {
   if (!membershipData && (userRole === 'group_officer' || userRole === 'group_member')) {
     return (
       <Box>
-        <Alert severity=\"info\" sx={{ mb: 3 }}>
-          <Typography variant=\"h6\" gutterBottom>
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
             Welcome to Savings Groups!
           </Typography>
           <Typography>
             You are not currently a member of any savings group. Contact your local group administrator to join a group.
           </Typography>
-          <Button variant=\"contained\" sx={{ mt: 2 }}>
+          <Button variant="contained" sx={{ mt: 2 }}>
             Find Groups Near Me
           </Button>
         </Alert>
@@ -77,7 +77,7 @@ export default function SavingsGroupsDashboard({ userRole, membershipData }) {
 
   return (
     <Box>
-      <Typography variant=\"h4\" gutterBottom>
+      <Typography variant="h4" gutterBottom>
         {getRoleTitle(userRole)}
       </Typography>
       
@@ -125,15 +125,15 @@ function AdminDashboardContent({ dashboardData, userRole }) {
       <Grid item xs={12} sm={6} md={3}>
         <Card>
           <CardContent>
-            <Box display=\"flex\" alignItems=\"center\">
+            <Box display="flex" alignItems="center">
               <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
                 <GroupIcon />
               </Avatar>
               <Box>
-                <Typography color=\"textSecondary\" gutterBottom>
+                <Typography color="textSecondary" gutterBottom>
                   Total Groups
                 </Typography>
-                <Typography variant=\"h5\">
+                <Typography variant="h5">
                   {adminStats.totalGroups}
                 </Typography>
               </Box>
@@ -145,15 +145,15 @@ function AdminDashboardContent({ dashboardData, userRole }) {
       <Grid item xs={12} sm={6} md={3}>
         <Card>
           <CardContent>
-            <Box display=\"flex\" alignItems=\"center\">
+            <Box display="flex" alignItems="center">
               <Avatar sx={{ bgcolor: 'success.main', mr: 2 }}>
                 <GroupIcon />
               </Avatar>
               <Box>
-                <Typography color=\"textSecondary\" gutterBottom>
+                <Typography color="textSecondary" gutterBottom>
                   Total Members
                 </Typography>
-                <Typography variant=\"h5\">
+                <Typography variant="h5">
                   {adminStats.totalMembers}
                 </Typography>
               </Box>
@@ -165,15 +165,15 @@ function AdminDashboardContent({ dashboardData, userRole }) {
       <Grid item xs={12} sm={6} md={3}>
         <Card>
           <CardContent>
-            <Box display=\"flex\" alignItems=\"center\">
+            <Box display="flex" alignItems="center">
               <Avatar sx={{ bgcolor: 'info.main', mr: 2 }}>
                 <SavingsIcon />
               </Avatar>
               <Box>
-                <Typography color=\"textSecondary\" gutterBottom>
+                <Typography color="textSecondary" gutterBottom>
                   Total Savings
                 </Typography>
-                <Typography variant=\"h5\">
+                <Typography variant="h5">
                   UGX {adminStats.totalSavings.toLocaleString()}
                 </Typography>
               </Box>
@@ -185,15 +185,15 @@ function AdminDashboardContent({ dashboardData, userRole }) {
       <Grid item xs={12} sm={6} md={3}>
         <Card>
           <CardContent>
-            <Box display=\"flex\" alignItems=\"center\">
+            <Box display="flex" alignItems="center">
               <Avatar sx={{ bgcolor: 'warning.main', mr: 2 }}>
                 <WarningIcon />
               </Avatar>
               <Box>
-                <Typography color=\"textSecondary\" gutterBottom>
+                <Typography color="textSecondary" gutterBottom>
                   Pending Actions
                 </Typography>
-                <Typography variant=\"h5\">
+                <Typography variant="h5">
                   {adminStats.pendingTransactions}
                 </Typography>
               </Box>
@@ -206,7 +206,7 @@ function AdminDashboardContent({ dashboardData, userRole }) {
       <Grid item xs={12} md={8}>
         <Card>
           <CardContent>
-            <Typography variant=\"h6\" gutterBottom>
+            <Typography variant="h6" gutterBottom>
               Recent System Activity
             </Typography>
             <List>
@@ -214,7 +214,7 @@ function AdminDashboardContent({ dashboardData, userRole }) {
                 <React.Fragment key={activity.id}>
                   <ListItem>
                     <ListItemIcon>
-                      <CheckCircleIcon color=\"success\" />
+                      <CheckCircleIcon color="success" />
                     </ListItemIcon>
                     <ListItemText
                       primary={activity.description}
@@ -233,20 +233,20 @@ function AdminDashboardContent({ dashboardData, userRole }) {
       <Grid item xs={12} md={4}>
         <Card>
           <CardContent>
-            <Typography variant=\"h6\" gutterBottom>
+            <Typography variant="h6" gutterBottom>
               Quick Actions
             </Typography>
-            <Box display=\"flex\" flexDirection=\"column\" gap={2}>
-              <Button variant=\"contained\" fullWidth>
+            <Box display="flex" flexDirection="column" gap={2}>
+              <Button variant="contained" fullWidth>
                 Review Pending Transactions
               </Button>
-              <Button variant=\"outlined\" fullWidth>
+              <Button variant="outlined" fullWidth>
                 Create New Campaign
               </Button>
-              <Button variant=\"outlined\" fullWidth>
+              <Button variant="outlined" fullWidth>
                 Generate Reports
               </Button>
-              <Button variant=\"outlined\" fullWidth>
+              <Button variant="outlined" fullWidth>
                 System Settings
               </Button>
             </Box>
@@ -280,17 +280,17 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
       <Grid item xs={12} md={8}>
         <Card>
           <CardContent>
-            <Typography variant=\"h6\" gutterBottom>
+            <Typography variant="h6" gutterBottom>
               My Financial Summary
             </Typography>
             
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={6} sm={3}>
-                <Box textAlign=\"center\">
-                  <Typography variant=\"h5\" color=\"primary\">
+                <Box textAlign="center">
+                  <Typography variant="h5" color="primary">
                     UGX {memberStats.personalSavings.toLocaleString()}
                   </Typography>
-                  <Typography variant=\"body2\" color=\"text.secondary\">
+                  <Typography variant="body2" color="text.secondary">
                     Personal Savings
                   </Typography>
                 </Box>
@@ -299,22 +299,22 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
               {userRole === 'group_officer' && (
                 <>
                   <Grid item xs={6} sm={3}>
-                    <Box textAlign=\"center\">
-                      <Typography variant=\"h5\" color=\"secondary\">
+                    <Box textAlign="center">
+                      <Typography variant="h5" color="secondary">
                         UGX {memberStats.ecdFund.toLocaleString()}
                       </Typography>
-                      <Typography variant=\"body2\" color=\"text.secondary\">
+                      <Typography variant="body2" color="text.secondary">
                         ECD Fund
                       </Typography>
                     </Box>
                   </Grid>
                   
                   <Grid item xs={6} sm={3}>
-                    <Box textAlign=\"center\">
-                      <Typography variant=\"h5\" color=\"success.main\">
+                    <Box textAlign="center">
+                      <Typography variant="h5" color="success.main">
                         UGX {memberStats.socialFund.toLocaleString()}
                       </Typography>
-                      <Typography variant=\"body2\" color=\"text.secondary\">
+                      <Typography variant="body2" color="text.secondary">
                         Social Fund
                       </Typography>
                     </Box>
@@ -323,11 +323,11 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
               )}
               
               <Grid item xs={6} sm={3}>
-                <Box textAlign=\"center\">
-                  <Typography variant=\"h5\" color=\"info.main\">
+                <Box textAlign="center">
+                  <Typography variant="h5" color="info.main">
                     UGX {memberStats.totalContributions.toLocaleString()}
                   </Typography>
-                  <Typography variant=\"body2\" color=\"text.secondary\">
+                  <Typography variant="body2" color="text.secondary">
                     Total Contributions
                   </Typography>
                 </Box>
@@ -335,18 +335,18 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
             </Grid>
 
             {/* Savings Progress */}
-            <Typography variant=\"subtitle1\" gutterBottom>
+            <Typography variant="subtitle1" gutterBottom>
               Savings Progress
             </Typography>
             <Box sx={{ mb: 2 }}>
-              <Box display=\"flex\" justifyContent=\"space-between\" alignItems=\"center\" mb={1}>
-                <Typography variant=\"body2\">Personal Savings</Typography>
-                <Typography variant=\"body2\">
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                <Typography variant="body2">Personal Savings</Typography>
+                <Typography variant="body2">
                   {((memberStats.personalSavings / memberStats.groupBalance) * 100).toFixed(1)}%
                 </Typography>
               </Box>
               <LinearProgress
-                variant=\"determinate\"
+                variant="determinate"
                 value={(memberStats.personalSavings / memberStats.groupBalance) * 100}
                 sx={{ height: 8, borderRadius: 4 }}
               />
@@ -359,49 +359,49 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
       <Grid item xs={12} md={4}>
         <Card>
           <CardContent>
-            <Typography variant=\"h6\" gutterBottom>
+            <Typography variant="h6" gutterBottom>
               Group Information
             </Typography>
             
             <Box mb={2}>
-              <Typography variant=\"subtitle2\" color=\"text.secondary\">
+              <Typography variant="subtitle2" color="text.secondary">
                 Group Name
               </Typography>
-              <Typography variant=\"body1\">
-                {membershipData?.group_name || 'Kampala Women\\'s Cooperative'}
+              <Typography variant="body1">
+                {membershipData?.group_name || "Kampala Women's Cooperative"}
               </Typography>
             </Box>
 
             <Box mb={2}>
-              <Typography variant=\"subtitle2\" color=\"text.secondary\">
+              <Typography variant="subtitle2" color="text.secondary">
                 My Role
               </Typography>
               <Chip 
                 label={userRole === 'group_officer' ? 'Officer' : 'Member'} 
                 color={userRole === 'group_officer' ? 'primary' : 'success'}
-                size=\"small\"
+                size="small"
               />
             </Box>
 
             <Box mb={2}>
-              <Typography variant=\"subtitle2\" color=\"text.secondary\">
+              <Typography variant="subtitle2" color="text.secondary">
                 Next Meeting
               </Typography>
-              <Box display=\"flex\" alignItems=\"center\" gap={1}>
-                <EventIcon fontSize=\"small\" />
-                <Typography variant=\"body2\">
+              <Box display="flex" alignItems="center" gap={1}>
+                <EventIcon fontSize="small" />
+                <Typography variant="body2">
                   {memberStats.nextMeeting}
                 </Typography>
               </Box>
             </Box>
 
             <Box mb={2}>
-              <Typography variant=\"subtitle2\" color=\"text.secondary\">
+              <Typography variant="subtitle2" color="text.secondary">
                 Attendance Rate
               </Typography>
-              <Box display=\"flex\" alignItems=\"center\" gap={1}>
-                <TrendingUpIcon fontSize=\"small\" color=\"success\" />
-                <Typography variant=\"body2\">
+              <Box display="flex" alignItems="center" gap={1}>
+                <TrendingUpIcon fontSize="small" color="success" />
+                <Typography variant="body2">
                   {memberStats.attendanceRate}%
                 </Typography>
               </Box>
@@ -409,10 +409,10 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
 
             <Divider sx={{ my: 2 }} />
 
-            <Button variant=\"contained\" fullWidth sx={{ mb: 1 }}>
+            <Button variant="contained" fullWidth sx={{ mb: 1 }}>
               Record New Savings
             </Button>
-            <Button variant=\"outlined\" fullWidth>
+            <Button variant="outlined" fullWidth>
               View Group Details
             </Button>
           </CardContent>
@@ -423,7 +423,7 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
       <Grid item xs={12}>
         <Card>
           <CardContent>
-            <Typography variant=\"h6\" gutterBottom>
+            <Typography variant="h6" gutterBottom>
               Recent Transactions
             </Typography>
             <List>
@@ -431,7 +431,7 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
                 <React.Fragment key={transaction.id}>
                   <ListItem>
                     <ListItemIcon>
-                      <SavingsIcon color=\"primary\" />
+                      <SavingsIcon color="primary" />
                     </ListItemIcon>
                     <ListItemText
                       primary={`${transaction.type} - UGX ${transaction.amount.toLocaleString()}`}
@@ -439,8 +439,8 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
                     />
                     <Chip 
                       label={transaction.status} 
-                      color=\"success\" 
-                      size=\"small\" 
+                      color="success" 
+                      size="small" 
                     />
                   </ListItem>
                   {index < memberStats.recentTransactions.length - 1 && <Divider />}

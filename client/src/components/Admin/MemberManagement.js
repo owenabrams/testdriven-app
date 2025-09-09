@@ -44,7 +44,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { savingsGroupsAPI } from '../../services/api';
+import savingsGroupsAPI from '../../services/savingsGroupsAPI';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 
@@ -73,15 +73,15 @@ export default function MemberManagement() {
   // Fetch all groups to get members
   const { data: groups, isLoading } = useQuery(
     'admin-all-groups',
-    () => savingsGroupsAPI.getGroups(),
+    () => savingsGroupsAPI.getMockData(),
     {
-      select: (response) => response.data.data || [],
+      select: (response) => response.groups || [],
     }
   );
 
   // Extract all members from groups
   const allMembers = React.useMemo(() => {
-    if (!groups) return [];
+    if (!groups || !Array.isArray(groups)) return [];
     
     return groups.flatMap(group => 
       (group.members || []).map(member => ({
