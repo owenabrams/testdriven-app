@@ -88,7 +88,23 @@ export const AuthProvider = ({ children }) => {
         const { auth_token, user: userData } = response.data;
         console.log('✅ Login successful, storing token and user data');
         localStorage.setItem('auth_token', auth_token);
-        dispatch({ type: 'LOGIN_SUCCESS', payload: userData });
+        
+        // If user data is not in response, fetch it
+        if (userData) {
+          dispatch({ type: 'LOGIN_SUCCESS', payload: userData });
+        } else {
+          // Fetch user data using the token
+          try {
+            const userResponse = await apiClient.get('/auth/status');
+            if (userResponse.data.status === 'success') {
+              dispatch({ type: 'LOGIN_SUCCESS', payload: userResponse.data.data });
+            }
+          } catch (error) {
+            console.error('Failed to fetch user data:', error);
+            dispatch({ type: 'LOGIN_SUCCESS', payload: { email } }); // Fallback
+          }
+        }
+        
         toast.success('Login successful!');
         return { success: true };
       } else {

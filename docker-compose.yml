@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  savings-groups-app:
+    image: savings-groups-test
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - APP_SETTINGS=project.config.ProductionConfig
+      - DATABASE_URL=sqlite:///app.db
+      - SECRET_KEY=production-secret-key-change-me
+    volumes:
+      - app_data:/app/services/users
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  app_data:

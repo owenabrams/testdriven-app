@@ -52,6 +52,11 @@ def create_app(script_info=None):
     # register socketio events for real-time features
     from project.api import socketio_events
 
+    # Health check endpoint for Docker
+    @app.route('/ping')
+    def ping():
+        return {'status': 'healthy', 'message': 'Savings Groups Platform is running'}
+
     # shell context for flask cli
     @app.shell_context_processor
     def ctx():

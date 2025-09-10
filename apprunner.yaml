@@ -1,0 +1,22 @@
+version: 1.0
+runtime: docker
+build:
+  commands:
+    build:
+      - echo "Building Savings Groups Platform..."
+      - docker build -f Dockerfile.minimal -t app .
+run:
+  runtime-version: latest
+  command: ./start.sh
+  network:
+    port: 5000
+    env: PORT
+  env:
+    - name: FLASK_ENV
+      value: production
+    - name: APP_SETTINGS
+      value: project.config.ProductionConfig
+    - name: DATABASE_URL
+      value: sqlite:///app.db
+    - name: SECRET_KEY
+      value: production-secret-key-change-me

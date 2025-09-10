@@ -43,6 +43,7 @@ def register_user():
             response_object['status'] = 'success'
             response_object['message'] = 'Successfully registered.'
             response_object['auth_token'] = auth_token
+            response_object['user'] = new_user.to_json()  # Add user data
             return jsonify(response_object), 201
         else:
             response_object['message'] = 'Sorry. That user already exists.'
@@ -74,11 +75,13 @@ def login_user():
                 response_object['status'] = 'success'
                 response_object['message'] = 'Successfully logged in.'
                 response_object['auth_token'] = auth_token
+                response_object['user'] = user.to_json()  # Add user data
                 return jsonify(response_object), 200
         else:
-            response_object['message'] = 'User does not exist.'
-            return jsonify(response_object), 404
-    except Exception:
+            response_object['message'] = 'Invalid email or password.'
+            return jsonify(response_object), 401
+    except Exception as e:
+        print(f"Login error: {e}")  # Debug logging
         response_object['message'] = 'Try again.'
         return jsonify(response_object), 500
 

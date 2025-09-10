@@ -1,0 +1,33 @@
+# Exclude everything first, then include what we need
+*
+
+# Include only necessary files
+!services/users/
+!client/
+!scripts/
+!*.md
+!*.json
+!*.yml
+!*.yaml
+
+# Exclude large directories and files
+services/users/venv/
+services/users/__pycache__/
+services/users/*.pyc
+services/users/coverage/
+client/node_modules/
+client/build/
+client/coverage/
+cypress/screenshots/
+cypress/videos/
+lambda-deployment/
+client-backup/
+
+# Exclude git and development files
+.git/
+.gitignore
+.env*
+*.log
+.DS_Store
+.vscode/
+.idea/

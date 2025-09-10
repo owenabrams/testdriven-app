@@ -43,16 +43,22 @@ export default function LoginPage() {
   };
 
   const onLogin = async (data) => {
+    console.log('🔐 LoginPage: Starting login process');
     setLoading(true);
     setError('');
     
     const result = await login(data.email, data.password);
     
+    console.log('🔐 LoginPage: Login result:', result);
+    
     if (!result.success) {
       setError(result.message);
+      setLoading(false);
+    } else {
+      console.log('✅ LoginPage: Login successful, should redirect now');
+      // Don't set loading to false here - let the auth context handle it
+      // The App component will re-render when user state changes
     }
-    
-    setLoading(false);
   };
 
   const onRegister = async (data) => {
