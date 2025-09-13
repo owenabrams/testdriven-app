@@ -55,7 +55,12 @@ def create_app(script_info=None):
     # Health check endpoint for Docker
     @app.route('/ping')
     def ping():
-        return {'status': 'healthy', 'message': 'Savings Groups Platform is running'}
+        return {
+            'status': 'healthy',
+            'message': 'Savings Groups Platform is running',
+            'version': '1.0.1-ecr-test',
+            'deployment': 'ECR Pipeline Test'
+        }
 
     # shell context for flask cli
     @app.shell_context_processor
