@@ -1,0 +1,91 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ staging, production ]
+  pull_request:
+    branches: [ staging, production ]
+
+env:
+  COMMIT: ${{ github.sha }}
+  SECRET_KEY: my_precious
+  AWS_DEFAULT_REGION: us-east-1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install backend dependencies
+      run: |
+        cd services/users
+        pip install -r requirements.txt
+    
+    - name: Run backend tests
+      run: |
+        cd services/users
+        python -m pytest
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install frontend dependencies
+      run: |
+        cd client
+        npm install
+    
+    - name: Run frontend tests
+      run: |
+        cd client
+        npm test -- --coverage --watchAll=false
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/production'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    
+    - name: Set environment variables
+      run: |
+        echo "REPO=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
+        if [[ $GITHUB_REF == 'refs/heads/production' ]]; then
+          echo "DOCKER_ENV=prod" >> $GITHUB_ENV
+          echo "TAG=production" >> $GITHUB_ENV
+        else
+          echo "DOCKER_ENV=stage" >> $GITHUB_ENV
+          echo "TAG=staging" >> $GITHUB_ENV
+        fi
+        echo "COMMIT_SHORT=${GITHUB_SHA:0:7}" >> $GITHUB_ENV
+    
+    - name: Build and push backend image
+      run: |
+        docker build ./services/users -t testdriven-backend:$COMMIT_SHORT -f ./services/users/Dockerfile-$DOCKER_ENV
+        docker tag testdriven-backend:$COMMIT_SHORT $REPO/testdriven-backend:$TAG
+        docker push $REPO/testdriven-backend:$TAG
+    
+    - name: Build and push frontend image
+      run: |
+        docker build ./client -t testdriven-frontend:$COMMIT_SHORT -f ./client/Dockerfile-$DOCKER_ENV
+        docker tag testdriven-frontend:$COMMIT_SHORT $REPO/testdriven-frontend:$TAG
+        docker push $REPO/testdriven-frontend:$TAG
