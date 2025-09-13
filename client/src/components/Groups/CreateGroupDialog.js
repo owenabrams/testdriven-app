@@ -204,6 +204,42 @@ export default function CreateGroupDialog({ open, onClose, onSuccess }) {
               </TextField>
             </Grid>
 
+            {/* Officer Role Selection */}
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom color="primary" sx={{ mt: 2 }}>
+                Your Role in the Group
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                select
+                label="Your Officer Role"
+                {...register('creator_role', { required: 'Officer role is required' })}
+                error={!!errors.creator_role}
+                helperText={errors.creator_role?.message || 'As the group creator, you will be assigned this officer role'}
+                SelectProps={{ native: true }}
+              >
+                <option value="">Select Your Role</option>
+                <option value="secretary">Secretary</option>
+                <option value="chair">Chairperson</option>
+                <option value="treasurer">Treasurer</option>
+              </TextField>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+                <Typography variant="body2" color="info.contrastText">
+                  <strong>Officer Responsibilities:</strong>
+                  <br />
+                  • <strong>Secretary:</strong> Record keeping, meeting minutes
+                  • <strong>Chairperson:</strong> Group leadership, meetings
+                  • <strong>Treasurer:</strong> Financial management, loans
+                </Typography>
+              </Box>
+            </Grid>
+
             {/* Additional Information */}
             <Grid item xs={12}>
               <Box sx={{ p: 2, bgcolor: 'primary.light', borderRadius: 1, mt: 2 }}>

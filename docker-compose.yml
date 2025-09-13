@@ -1,23 +1,45 @@
 version: '3.8'
 
 services:
-  savings-groups-app:
-    image: savings-groups-test
+  backend:
+    build:
+      context: ./services/users
+      dockerfile: Dockerfile
     ports:
       - "5000:5000"
     environment:
-      - FLASK_ENV=production
-      - APP_SETTINGS=project.config.ProductionConfig
-      - DATABASE_URL=sqlite:///app.db
-      - SECRET_KEY=production-secret-key-change-me
+      - FLASK_ENV=development
+      - DATABASE_URL=sqlite:///instance/dev.db
+      - SECRET_KEY=dev-secret-key
     volumes:
-      - app_data:/app/services/users
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - ./services/users:/usr/src/app
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_USERS_SERVICE_URL=http://localhost:5000
+    volumes:
+      - ./client:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=testdriven_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
 volumes:
-  app_data:
+  postgres_data:

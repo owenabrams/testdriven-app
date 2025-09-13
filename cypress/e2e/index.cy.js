@@ -1,38 +1,16 @@
-describe('Index', () => {
-  beforeEach(() => {
-    cy.clearLocalStorage();
-  });
+describe('Index Page', () => {
+  it('should be able to view the home page', () => {
+    cy.visit('/')
+    cy.get('h1').should('be.visible')
+    // The page should load without errors
+    cy.contains('Savings').should('be.visible')
+  })
 
-  it('should display the page correctly if a user is not logged in', () => {
-    cy
-      .visit('/')
-      .get('h1').contains('All Users');
-    
-    // Check that unauthenticated navigation is visible
-    cy.get('a').contains('Register').should('be.visible');
-    cy.get('a').contains('Login').should('be.visible');
-    
-    // Check that user menu button is not visible when not authenticated
-    cy.get('button').contains('User Menu').should('not.exist');
-  });
-
-  it('should display the users table', () => {
-    cy
-      .visit('/')
-      .get('table')
-      .should('be.visible')
-      .get('th')
-      .should('contain', 'ID')
-      .should('contain', 'Email')
-      .should('contain', 'Username')
-      .should('contain', 'Active')
-      .should('contain', 'Admin');
-  });
-
-  it('should display users in the table', () => {
-    cy
-      .visit('/')
-      .get('tbody tr')
-      .should('have.length.greaterThan', 0);
-  });
-});
+  it('should have login form when not authenticated', () => {
+    cy.visit('/')
+    // Should show login form when not authenticated
+    cy.get('input[name="email"]').should('be.visible')
+    cy.get('input[name="password"]').should('be.visible')
+    cy.get('button[type="submit"]').should('be.visible')
+  })
+})

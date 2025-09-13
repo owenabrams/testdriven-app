@@ -1,0 +1,90 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, development, staging, production ]
+  pull_request:
+    branches: [ main, master, development, staging, production ]
+
+env:
+  COMMIT: ${{ github.sha }}
+  SECRET_KEY: my_precious
+  AWS_DEFAULT_REGION: us-east-1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        npm install
+        pip install docker-compose
+
+    - name: Set environment variables
+      run: |
+        echo "REACT_APP_USERS_SERVICE_URL=http://127.0.0.1" >> $GITHUB_ENV
+        echo "COMMIT_SHORT=${GITHUB_SHA::8}" >> $GITHUB_ENV
+
+    - name: Run tests based on branch
+      run: |
+        if [[ "${{ github.ref_name }}" == "development" ]] || [[ "${{ github.ref_name }}" == "main" ]] || [[ "${{ github.ref_name }}" == "master" ]]; then
+          echo "Running client and server-side tests!"
+          bash test-ci.sh development
+        elif [[ "${{ github.ref_name }}" == "staging" ]]; then
+          echo "Running e2e tests!"
+          bash test-ci.sh staging
+        elif [[ "${{ github.ref_name }}" == "production" ]]; then
+          echo "Running e2e tests!"
+          bash test-ci.sh production
+        else
+          echo "Running client and server-side tests!"
+          bash test-ci.sh development
+        fi
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref_name == 'staging' || github.ref_name == 'production')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Set environment variables
+      run: |
+        echo "COMMIT_SHORT=${GITHUB_SHA::8}" >> $GITHUB_ENV
+        echo "TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+        echo "REPO=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com" >> $GITHUB_ENV
+        if [[ "${{ github.ref_name }}" == "staging" ]]; then
+          echo "DOCKER_ENV=stage" >> $GITHUB_ENV
+        elif [[ "${{ github.ref_name }}" == "production" ]]; then
+          echo "DOCKER_ENV=prod" >> $GITHUB_ENV
+        fi
+
+    - name: Build and push Docker images
+      run: bash ./docker-push.sh

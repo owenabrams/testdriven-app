@@ -91,16 +91,17 @@ export default function Layout({ children }) {
   ];
 
   // Get notifications count
-  const { data: notifications } = useQuery(
-    'notifications',
-    () => notificationsAPI.getNotifications(),
+  const { data: unreadCountData } = useQuery(
+    ['notifications-count', user?.id],
+    () => notificationsAPI.getUnreadCount(user?.id),
     {
-      select: (response) => response.data.data || [],
+      select: (response) => response.data.data?.unread_count || 0,
       refetchInterval: 30000, // Refetch every 30 seconds
+      enabled: !!user?.id,
     }
   );
 
-  const unreadCount = notifications?.filter(n => !n.is_read).length || 0;
+  const unreadCount = unreadCountData || 0;
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

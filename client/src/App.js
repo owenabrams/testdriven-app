@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import Layout from './components/Layout/Layout';
 import LoginPage from './pages/Auth/LoginPage';
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -15,6 +16,7 @@ import AnalyticsPage from './pages/Analytics/AnalyticsPage';
 import ProfilePage from './pages/Profile/ProfilePage';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import SavingsGroupsApp from './pages/SavingsGroups/SavingsGroupsApp';
+import NotificationsPage from './pages/Notifications/NotificationsPage';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 
 function App() {
@@ -29,23 +31,26 @@ function App() {
   }
 
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/groups" element={<GroupsPage />} />
-        <Route path="/groups/:id" element={<GroupDetailsPage />} />
-        <Route path="/campaigns" element={<CampaignsPage />} />
-        <Route path="/campaigns/:id" element={<CampaignDetailsPage />} />
-        <Route path="/loans" element={<LoansPage />} />
-        <Route path="/loans/assessment/:memberId" element={<LoanAssessmentPage />} />
-        <Route path="/analytics" element={<AnalyticsPage />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/savings-groups/*" element={<SavingsGroupsApp />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </Layout>
+    <NotificationProvider>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/groups" element={<GroupsPage />} />
+          <Route path="/groups/:id" element={<GroupDetailsPage />} />
+          <Route path="/campaigns" element={<CampaignsPage />} />
+          <Route path="/campaigns/:id" element={<CampaignDetailsPage />} />
+          <Route path="/loans" element={<LoansPage />} />
+          <Route path="/loans/assessment/:memberId" element={<LoanAssessmentPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/savings-groups/*" element={<SavingsGroupsApp />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Layout>
+    </NotificationProvider>
   );
 }
 

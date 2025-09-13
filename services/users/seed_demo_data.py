@@ -6,7 +6,7 @@ Creates realistic demo data to showcase the complete system functionality
 
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 # Add the project directory to the path
@@ -14,10 +14,10 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from project import create_app, db
 from project.api.models import (
-    User, SavingsGroup, GroupMember, SavingType, MemberSaving, 
+    User, SavingsGroup, GroupMember, SavingType, MemberSaving,
     SavingTransaction, GroupCashbook, MeetingAttendance, MemberFine,
     LoanAssessment, GroupLoan, TargetSavingsCampaign, GroupTargetCampaign,
-    MemberCampaignParticipation
+    MemberCampaignParticipation, Notification
 )
 
 def create_demo_data():
@@ -62,10 +62,11 @@ def create_demo_data():
             admin_user = User(
                 username='superadmin',
                 email='superadmin@testdriven.io',
-                password='superpassword123',
-                is_super_admin=True,
-                admin=True
+                password='superpassword123'
             )
+            admin_user.is_super_admin = True
+            admin_user.admin = True
+            admin_user.role = 'super_admin'
             db.session.add(admin_user)
             db.session.commit()
         
@@ -75,10 +76,10 @@ def create_demo_data():
             service_admin = User(
                 username='savingsadmin',
                 email='admin@savingsgroups.ug',
-                password='admin123',
-                admin=True,
-                role='service_admin'
+                password='admin123'
             )
+            service_admin.admin = True
+            service_admin.role = 'service_admin'
             db.session.add(service_admin)
             db.session.commit()
             print("✅ Service admin created: admin@savingsgroups.ug / admin123")
@@ -123,7 +124,12 @@ def create_demo_data():
         for st_data in saving_types_data:
             existing = SavingType.query.filter_by(code=st_data['code']).first()
             if not existing:
-                saving_type = SavingType(**st_data)
+                saving_type = SavingType(
+                    name=st_data['name'],
+                    code=st_data['code'],
+                    created_by=admin_user.id,
+                    description=st_data['description']
+                )
                 db.session.add(saving_type)
         
         db.session.commit()
@@ -142,11 +148,11 @@ def create_demo_data():
             region="Central",
             formation_date=date.today() - timedelta(days=365),  # 1 year old
             created_by=admin_user.id,
-            target_amount=Decimal('10000000'),  # 10M UGX
-            state='ACTIVE',
-            meeting_frequency='WEEKLY',
-            minimum_contribution=Decimal('50000')  # 50K UGX
+            target_amount=Decimal('10000000')  # 10M UGX
         )
+        group1.state = 'ACTIVE'
+        group1.meeting_frequency = 'WEEKLY'
+        group1.minimum_contribution = Decimal('50000')  # 50K UGX
         db.session.add(group1)
         db.session.flush()
         
@@ -154,18 +160,18 @@ def create_demo_data():
         group2 = SavingsGroup(
             name="Nakasero Traders Association",
             description="Supporting small business owners in Nakasero market",
-            district="Kampala", 
+            district="Kampala",
             parish="Nakasero",
             village="Commercial District",
             country="Uganda",
             region="Central",
             formation_date=date.today() - timedelta(days=180),  # 6 months old
             created_by=admin_user.id,
-            target_amount=Decimal('5000000'),  # 5M UGX
-            state='ACTIVE',
-            meeting_frequency='WEEKLY',
-            minimum_contribution=Decimal('25000')  # 25K UGX
+            target_amount=Decimal('5000000')  # 5M UGX
         )
+        group2.state = 'ACTIVE'
+        group2.meeting_frequency = 'WEEKLY'
+        group2.minimum_contribution = Decimal('25000')  # 25K UGX
         db.session.add(group2)
         db.session.flush()
         
@@ -174,17 +180,17 @@ def create_demo_data():
             name="Bugolobi Youth Entrepreneurs",
             description="Young entrepreneurs building their future together",
             district="Kampala",
-            parish="Bugolobi", 
+            parish="Bugolobi",
             village="Residential Area",
             country="Uganda",
             region="Central",
             formation_date=date.today() - timedelta(days=30),  # 1 month old
             created_by=admin_user.id,
-            target_amount=Decimal('2000000'),  # 2M UGX
-            state='FORMING',
-            meeting_frequency='WEEKLY',
-            minimum_contribution=Decimal('20000')  # 20K UGX
+            target_amount=Decimal('2000000')  # 2M UGX
         )
+        group3.state = 'FORMING'
+        group3.meeting_frequency = 'WEEKLY'
+        group3.minimum_contribution = Decimal('20000')  # 20K UGX
         db.session.add(group3)
         db.session.flush()
         
@@ -195,9 +201,9 @@ def create_demo_data():
         
         # Group 1 Members (Kampala Women's Cooperative)
         group1_members = [
-            {'user': demo_users['sarah_nakato'], 'name': 'Sarah Nakato', 'phone': '+256701234567', 'gender': 'F', 'role': 'CHAIR'},
-            {'user': demo_users['mary_nambi'], 'name': 'Mary Nambi', 'phone': '+256702345678', 'gender': 'F', 'role': 'TREASURER'},
-            {'user': demo_users['grace_mukasa'], 'name': 'Grace Mukasa', 'phone': '+256703456789', 'gender': 'F', 'role': 'SECRETARY'},
+            {'user': demo_users['sarah_nakato'], 'name': 'Sarah Nakato', 'phone': '+256701234567', 'gender': 'F', 'role': 'OFFICER'},
+            {'user': demo_users['mary_nambi'], 'name': 'Mary Nambi', 'phone': '+256702345678', 'gender': 'F', 'role': 'OFFICER'},
+            {'user': demo_users['grace_mukasa'], 'name': 'Grace Mukasa', 'phone': '+256703456789', 'gender': 'F', 'role': 'OFFICER'},
             {'user': demo_users['alice_ssali'], 'name': 'Alice Ssali', 'phone': '+256704567890', 'gender': 'F', 'role': 'MEMBER'},
             {'user': demo_users['jane_nakirya'], 'name': 'Jane Nakirya', 'phone': '+256705678901', 'gender': 'F', 'role': 'MEMBER'},
         ]
@@ -209,16 +215,16 @@ def create_demo_data():
                 name=member_data['name'],
                 phone=member_data['phone'],
                 gender=member_data['gender'],
-                role=member_data['role'],
-                joined_date=group1.formation_date + timedelta(days=7),
-                is_active=True
+                role=member_data['role']
             )
+            member.joined_date = group1.formation_date + timedelta(days=7)
+            member.is_active = True
             db.session.add(member)
         
         # Group 2 Members (Nakasero Traders)
         group2_members = [
-            {'user': demo_users['john_mukasa'], 'name': 'John Mukasa', 'phone': '+256706789012', 'gender': 'M', 'role': 'CHAIR'},
-            {'user': demo_users['rose_namuli'], 'name': 'Rose Namuli', 'phone': '+256707890123', 'gender': 'F', 'role': 'TREASURER'},
+            {'user': demo_users['john_mukasa'], 'name': 'John Mukasa', 'phone': '+256706789012', 'gender': 'M', 'role': 'OFFICER'},
+            {'user': demo_users['rose_namuli'], 'name': 'Rose Namuli', 'phone': '+256707890123', 'gender': 'F', 'role': 'OFFICER'},
             {'user': demo_users['peter_ssali'], 'name': 'Peter Ssali', 'phone': '+256708901234', 'gender': 'M', 'role': 'MEMBER'},
         ]
         
@@ -229,10 +235,10 @@ def create_demo_data():
                 name=member_data['name'],
                 phone=member_data['phone'],
                 gender=member_data['gender'],
-                role=member_data['role'],
-                joined_date=group2.formation_date + timedelta(days=14),
-                is_active=True
+                role=member_data['role']
             )
+            member.joined_date = group2.formation_date + timedelta(days=14)
+            member.is_active = True
             db.session.add(member)
         
         db.session.commit()
@@ -263,30 +269,40 @@ def create_demo_data():
             for month_offset, amount in amounts_by_month.items():
                 transaction_date = date.today() - timedelta(days=30 * month_offset)
                 
-                # Create member saving record
-                member_saving = MemberSaving(
+                # Create or get member saving record
+                member_saving = MemberSaving.query.filter_by(
                     member_id=member.id,
-                    saving_type_id=saving_type.id,
-                    amount=Decimal(str(amount)),
-                    transaction_date=transaction_date,
-                    balance_after=total_balance + Decimal(str(amount)),
-                    created_by=admin_user.id
-                )
+                    saving_type_id=saving_type.id
+                ).first()
+
+                if not member_saving:
+                    member_saving = MemberSaving(
+                        member_id=member.id,
+                        saving_type_id=saving_type.id
+                    )
+                    db.session.add(member_saving)
+
+                # Update balance
+                balance_before = member_saving.current_balance or Decimal('0')
+                member_saving.current_balance = balance_before + Decimal(str(amount))
                 db.session.add(member_saving)
-                
+                db.session.flush()  # Ensure member_saving has an ID
+
                 # Create saving transaction
                 saving_transaction = SavingTransaction(
-                    member_id=member.id,
-                    saving_type_id=saving_type.id,
-                    transaction_type='DEPOSIT',
+                    member_saving_id=member_saving.id,
                     amount=Decimal(str(amount)),
-                    transaction_date=transaction_date,
-                    status='VERIFIED',
+                    transaction_type='DEPOSIT',
+                    processed_by=admin_user.id,
+                    description=f'Monthly contribution - {saving_type.name}',
                     mobile_money_provider='MTN' if month_offset % 2 == 0 else 'AIRTEL',
                     mobile_money_transaction_id=f'TXN{member.id}{month_offset}{amount}',
-                    phone_number=member.phone,
-                    created_by=admin_user.id
+                    mobile_money_phone=member.phone
                 )
+                saving_transaction.balance_before = balance_before
+                saving_transaction.balance_after = member_saving.current_balance
+                saving_transaction.transaction_date = transaction_date
+                saving_transaction.status = 'VERIFIED'
                 db.session.add(saving_transaction)
                 
                 total_balance += Decimal(str(amount))
@@ -294,15 +310,21 @@ def create_demo_data():
                 # Create cashbook entry
                 cashbook_entry = GroupCashbook(
                     group_id=member.group_id,
-                    transaction_type='MEMBER_SAVING',
-                    amount=Decimal(str(amount)),
                     transaction_date=transaction_date,
                     description=f'{saving_type.name} - {member.name}',
-                    member_id=member.id,
-                    saving_type_id=saving_type.id,
-                    running_balance=total_balance,
-                    created_by=admin_user.id
+                    entry_type='DEPOSIT',
+                    created_by=admin_user.id,
+                    member_id=member.id
                 )
+                # Set the appropriate saving type amount
+                if saving_type.code == 'PERSONAL':
+                    cashbook_entry.individual_saving = Decimal(str(amount))
+                elif saving_type.code == 'ECD':
+                    cashbook_entry.ecd_fund = Decimal(str(amount))
+                elif saving_type.code == 'SOCIAL':
+                    cashbook_entry.social_fund = Decimal(str(amount))
+                elif saving_type.code == 'TARGET':
+                    cashbook_entry.target_saving = Decimal(str(amount))
                 db.session.add(cashbook_entry)
             
             # Update member balance
@@ -342,16 +364,16 @@ def create_demo_data():
             description="Supporting women entrepreneurs across Kampala with targeted savings goals",
             target_amount=Decimal('5000000'),
             target_date=date(2025, 12, 31),
+            created_by=admin_user.id,
             is_mandatory=False,
-            requires_group_vote=True,
-            minimum_participation_rate=Decimal('70'),
-            completion_bonus_rate=Decimal('10'),
-            early_completion_bonus=Decimal('5'),
-            penalty_for_non_participation=Decimal('0'),
-            is_global=True,
-            status='ACTIVE',
-            created_by=admin_user.id
+            requires_group_vote=True
         )
+        campaign.minimum_participation_rate = Decimal('70')
+        campaign.completion_bonus_rate = Decimal('10')
+        campaign.early_completion_bonus = Decimal('5')
+        campaign.penalty_for_non_participation = Decimal('0')
+        campaign.is_global = True
+        campaign.status = 'ACTIVE'
         db.session.add(campaign)
         db.session.flush()
         
@@ -359,11 +381,11 @@ def create_demo_data():
         group_campaign = GroupTargetCampaign(
             campaign_id=campaign.id,
             group_id=group1.id,
-            target_amount=Decimal('2000000'),
-            assigned_date=date.today() - timedelta(days=60),
-            status='ACTIVE',
             assigned_by=admin_user.id
         )
+        group_campaign.target_amount = Decimal('2000000')
+        group_campaign.assigned_date = date.today() - timedelta(days=60)
+        group_campaign.status = 'ACTIVE'
         db.session.add(group_campaign)
         db.session.flush()
         
@@ -381,12 +403,10 @@ def create_demo_data():
             participation = MemberCampaignParticipation(
                 group_campaign_id=group_campaign.id,
                 member_id=p['member'].id,
-                vote=p['vote'],
-                vote_date=date.today() - timedelta(days=55),
-                contribution_amount=Decimal(str(p['contribution'])),
-                last_contribution_date=date.today() - timedelta(days=10),
-                is_active=True
+                is_participating=True
             )
+            participation.current_contribution = Decimal(str(p['contribution']))
+            participation.last_contribution_date = date.today() - timedelta(days=10)
             db.session.add(participation)
             total_contributions += Decimal(str(p['contribution']))
         
@@ -398,19 +418,21 @@ def create_demo_data():
         print("💳 Creating loan assessment...")
         loan_assessment = LoanAssessment(
             member_id=mary.id,
-            assessment_date=date.today() - timedelta(days=7),
-            savings_history_score=Decimal('85'),
-            attendance_score=Decimal('90'),
-            payment_history_score=Decimal('95'),
-            total_score=Decimal('90'),
-            risk_level='LOW',
-            max_loan_amount=Decimal('500000'),
-            recommended_interest_rate=Decimal('12'),
-            recommended_term_months=6,
-            is_current=True,
-            valid_until=date.today() + timedelta(days=83),  # 3 months validity
-            created_by=admin_user.id
+            total_savings=Decimal('750000'),
+            months_active=8,
+            attendance_rate=Decimal('90'),
+            payment_consistency=Decimal('95'),
+            assessed_by=admin_user.id,
+            outstanding_fines=Decimal('0')
         )
+        loan_assessment.assessment_date = date.today() - timedelta(days=7)
+        loan_assessment.eligibility_score = Decimal('90')
+        loan_assessment.is_eligible = True
+        loan_assessment.max_loan_amount = Decimal('500000')
+        loan_assessment.recommended_term_months = 6
+        loan_assessment.risk_level = 'LOW'
+        loan_assessment.recommended_interest_rate = Decimal('12')
+        loan_assessment.valid_until = date.today() + timedelta(days=83)
         db.session.add(loan_assessment)
         
         # Create meeting attendance records
@@ -446,29 +468,29 @@ def create_demo_data():
         # Alice gets a fine for missing meetings
         fine1 = MemberFine(
             member_id=alice.id,
-            fine_type='MISSED_MEETING',
             amount=Decimal('10000'),
             reason='Missed meeting on 2024-11-15 without prior notice',
-            due_date=date.today() + timedelta(days=30),
-            status='UNPAID',
-            imposed_date=date.today() - timedelta(days=5),
-            imposed_by=admin_user.id
+            fine_type='MISSED_MEETING',
+            imposed_by=admin_user.id,
+            due_date=date.today() + timedelta(days=30)
         )
+        fine1.status = 'PENDING'
+        fine1.imposed_date = date.today() - timedelta(days=5)
         db.session.add(fine1)
         
         # Jane gets a smaller fine (she's new)
         fine2 = MemberFine(
             member_id=jane.id,
-            fine_type='LATE_PAYMENT',
             amount=Decimal('5000'),
             reason='Late savings contribution in November',
-            due_date=date.today() + timedelta(days=15),
-            status='PAID',
-            imposed_date=date.today() - timedelta(days=10),
+            fine_type='LATE_PAYMENT',
             imposed_by=admin_user.id,
-            paid_date=date.today() - timedelta(days=3),
-            paid_amount=Decimal('5000')
+            due_date=date.today() + timedelta(days=15)
         )
+        fine2.status = 'PAID'
+        fine2.imposed_date = date.today() - timedelta(days=10)
+        fine2.paid_date = date.today() - timedelta(days=3)
+        fine2.paid_amount = Decimal('5000')
         db.session.add(fine2)
         
         db.session.commit()
@@ -485,7 +507,83 @@ def create_demo_data():
         group2.savings_balance = group2_total
         
         db.session.commit()
-        
+
+        # Create demo notifications
+        print("📢 Creating demo notifications...")
+        demo_notifications = []
+
+        # Welcome notifications for all users
+        for user_data in users_data:
+            user = demo_users[user_data['username']]
+            welcome_notification = Notification(
+                user_id=user.id,
+                message=f"Welcome to the Enhanced Savings Groups platform, {user_data['full_name']}! Start by joining a savings group.",
+                type='info',
+                title='Welcome to the Platform'
+            )
+            demo_notifications.append(welcome_notification)
+
+        # Savings activity notifications
+        savings_notification = Notification(
+            user_id=demo_users['sarah_nakato'].id,
+            message="Your savings deposit of UGX 135,000 has been successfully recorded in Kampala Women's Cooperative.",
+            type='success',
+            title='Savings Deposited'
+        )
+        demo_notifications.append(savings_notification)
+
+        # Meeting reminder notification
+        meeting_notification = Notification(
+            user_id=demo_users['alice_ssali'].id,
+            message="Don't forget about the Kampala Women's Cooperative meeting tomorrow at 2:00 PM.",
+            type='warning',
+            title='Meeting Reminder'
+        )
+        demo_notifications.append(meeting_notification)
+
+        # Loan approval notification
+        loan_notification = Notification(
+            user_id=demo_users['mary_nambi'].id,
+            message="Your loan application for UGX 500,000 has been approved and will be disbursed soon.",
+            type='success',
+            title='Loan Approved'
+        )
+        demo_notifications.append(loan_notification)
+
+        # Campaign notification
+        campaign_notification = Notification(
+            user_id=demo_users['grace_mukasa'].id,
+            message="New savings campaign 'Women's Empowerment 2025' has started. Join now to participate!",
+            type='info',
+            title='New Campaign Started'
+        )
+        demo_notifications.append(campaign_notification)
+
+        # Fine notification
+        fine_notification = Notification(
+            user_id=demo_users['alice_ssali'].id,
+            message="You have been fined UGX 10,000 for missing the meeting on November 15th. Please pay by the due date.",
+            type='warning',
+            title='Fine Imposed'
+        )
+        demo_notifications.append(fine_notification)
+
+        # System notification for admin
+        admin_notification = Notification(
+            user_id=admin_user.id,
+            message="8 new users have registered today and the demo data has been successfully seeded.",
+            type='info',
+            title='System Update'
+        )
+        demo_notifications.append(admin_notification)
+
+        # Add all notifications to database
+        for notification in demo_notifications:
+            db.session.add(notification)
+
+        db.session.commit()
+        print(f"✅ Created {len(demo_notifications)} demo notifications")
+
         print("✅ Demo data seeding completed successfully!")
         print(f"""
 🎉 DEMO DATA SUMMARY:

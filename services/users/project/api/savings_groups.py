@@ -1,10 +1,10 @@
 # services/users/project/api/savings_groups.py
 
 from flask import Blueprint, jsonify, request
-from sqlalchemy import exc, desc
-from datetime import datetime, date
+from sqlalchemy import exc, desc, func
+from datetime import datetime, date, timedelta
 
-from project.api.models import User, Service, SavingsGroup, GroupMember, GroupLoan, GroupTransaction
+from project.api.models import User, Service, SavingsGroup, GroupMember, GroupLoan, GroupTransaction, MemberCampaignParticipation
 from project import db
 from project.api.utils import authenticate
 from project.api.notifications import create_system_notification
@@ -36,28 +36,140 @@ def service_permission_required(service_name, permission_type='read'):
     return decorator
 
 
+def group_officer_required(officer_roles=None):
+    """Decorator to require group officer permissions (Secretary, Chair, Treasurer)"""
+    def decorator(f):
+        from functools import wraps
+
+        @wraps(f)
+        def decorated_function(user_id, *args, **kwargs):
+            user = User.query.filter_by(id=user_id).first()
+            if not user:
+                return jsonify({'status': 'fail', 'message': 'User not found.'}), 404
+
+            # Super admin and service admin have access to everything
+            if user.is_super_admin or user.is_service_admin('Savings Groups'):
+                return f(user_id, *args, **kwargs)
+
+            # Check if user is an officer in any group
+            member_records = GroupMember.query.filter_by(user_id=user_id, is_active=True).all()
+
+            is_officer = False
+            for member in member_records:
+                if member.is_officer():
+                    officer_role = member.get_officer_role()
+                    if officer_roles is None or officer_role in officer_roles:
+                        is_officer = True
+                        break
+
+            if not is_officer:
+                roles_str = ', '.join(officer_roles) if officer_roles else 'Secretary, Chair, or Treasurer'
+                return jsonify({
+                    'status': 'fail',
+                    'message': f'Group officer access required. Must be a {roles_str}.'
+                }), 403
+
+            return f(user_id, *args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+def group_member_or_officer_required(group_id_param='group_id'):
+    """Decorator to require membership or officer role in the specific group"""
+    def decorator(f):
+        from functools import wraps
+
+        @wraps(f)
+        def decorated_function(user_id, *args, **kwargs):
+            user = User.query.filter_by(id=user_id).first()
+            if not user:
+                return jsonify({'status': 'fail', 'message': 'User not found.'}), 404
+
+            # Super admin and service admin have access to everything
+            if user.is_super_admin or user.is_service_admin('Savings Groups'):
+                return f(user_id, *args, **kwargs)
+
+            # Get group_id from kwargs or args
+            group_id = kwargs.get(group_id_param)
+            if group_id is None and args:
+                # Try to get from positional args (assumes group_id is first after user_id)
+                group_id = args[0] if len(args) > 0 else None
+
+            if not group_id:
+                return jsonify({'status': 'fail', 'message': 'Group ID required.'}), 400
+
+            # Check if user is a member of this group
+            member = GroupMember.query.filter_by(
+                user_id=user_id,
+                group_id=group_id,
+                is_active=True
+            ).first()
+
+            if not member:
+                return jsonify({
+                    'status': 'fail',
+                    'message': 'Access denied. Must be a member of this group.'
+                }), 403
+
+            return f(user_id, *args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 # Group Management Endpoints
 
 @savings_groups_blueprint.route('/savings-groups', methods=['POST'])
 @authenticate
-@service_permission_required('Savings Groups', 'write')
 def create_savings_group(user_id):
-    """Create a new savings group"""
+    """Create a new savings group - Available to Secretaries, Officers, and Admins"""
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify({'status': 'fail', 'message': 'User not found.'}), 404
+
+    # Check permissions: Super admin, Service admin, or existing group officer can create groups
+    can_create = (
+        user.is_super_admin or
+        user.is_service_admin('Savings Groups') or
+        _is_existing_group_officer(user_id)
+    )
+
+    if not can_create:
+        return jsonify({
+            'status': 'fail',
+            'message': 'Permission denied. Only group officers (Secretary, Chair, Treasurer) or admins can create new groups.'
+        }), 403
+
     post_data = request.get_json()
     response_object = {'status': 'fail', 'message': 'Invalid payload.'}
 
     if not post_data:
         return jsonify(response_object), 400
 
+    # Required fields
     name = post_data.get('name')
+    district = post_data.get('district')
+    parish = post_data.get('parish')
+    village = post_data.get('village')
+
+    # Optional fields
     description = post_data.get('description')
-    country = post_data.get('country')
+    country = post_data.get('country', 'Uganda')
     region = post_data.get('region')
     target_amount = post_data.get('target_amount')
     formation_date_str = post_data.get('formation_date')
+    creator_role = post_data.get('creator_role', 'secretary')  # Default to secretary
 
+    # Validation
     if not name:
         response_object['message'] = 'Group name is required.'
+        return jsonify(response_object), 400
+
+    if not district or not parish or not village:
+        response_object['message'] = 'District, Parish, and Village are required.'
+        return jsonify(response_object), 400
+
+    if creator_role not in ['secretary', 'chair', 'treasurer']:
+        response_object['message'] = 'Creator role must be secretary, chair, or treasurer.'
         return jsonify(response_object), 400
 
     # Parse formation date
@@ -79,30 +191,83 @@ def create_savings_group(user_id):
             description=description,
             country=country,
             region=region,
+            district=district,
+            parish=parish,
+            village=village,
             target_amount=target_amount
         )
 
         db.session.add(group)
+        db.session.flush()  # Get the group ID
+
+        # Add creator as the first member with FOUNDER role
+        creator_member = GroupMember(
+            group_id=group.id,
+            user_id=user_id,
+            name=f"{user.username}",  # Use username as display name
+            gender='OTHER',  # Default, can be updated later
+            phone=None,  # Can be updated later
+            role='FOUNDER'
+        )
+
+        db.session.add(creator_member)
+        db.session.flush()  # Get the member ID
+
+        # Assign creator as the specified officer role
+        if creator_role == 'secretary':
+            group.secretary_member_id = creator_member.id
+        elif creator_role == 'chair':
+            group.chair_member_id = creator_member.id
+        elif creator_role == 'treasurer':
+            group.treasurer_member_id = creator_member.id
+
+        # Update group member count
+        group.members_count = 1
+        group.update_state()  # Update group state based on members
+
         db.session.commit()
 
         # Create notification for group creation
-        create_system_notification(
-            user_id=user_id,
-            message=f'Savings group "{name}" created successfully',
-            notification_type='success',
-            title='Group Created',
-            service_id=Service.query.filter_by(name='Savings Groups').first().id
-        )
+        service = Service.query.filter_by(name='Savings Groups').first()
+        if service:
+            create_system_notification(
+                user_id=user_id,
+                message=f'Savings group "{name}" created successfully. You are now the {creator_role.title()}.',
+                notification_type='success',
+                title='Group Created',
+                service_id=service.id
+            )
 
         return jsonify({
             'status': 'success',
-            'message': 'Savings group created successfully.',
-            'data': {'group': group.to_json()}
+            'message': f'Savings group created successfully. You have been assigned as the {creator_role.title()}.',
+            'data': {
+                'group': group.to_json(),
+                'creator_member': creator_member.to_json()
+            }
         }), 201
 
-    except exc.IntegrityError:
+    except exc.IntegrityError as e:
         db.session.rollback()
+        if 'unique constraint' in str(e).lower():
+            response_object['message'] = 'A group with this name already exists.'
+        else:
+            response_object['message'] = 'Failed to create group due to data conflict.'
         return jsonify(response_object), 400
+    except Exception as e:
+        db.session.rollback()
+        response_object['message'] = 'Failed to create savings group.'
+        return jsonify(response_object), 500
+
+
+def _is_existing_group_officer(user_id):
+    """Helper function to check if user is an officer in any existing group"""
+    member_records = GroupMember.query.filter_by(user_id=user_id, is_active=True).all()
+
+    for member in member_records:
+        if member.is_officer():
+            return True
+    return False
 
 
 @savings_groups_blueprint.route('/savings-groups/<int:group_id>', methods=['GET'])
@@ -212,13 +377,28 @@ def update_savings_group(user_id, group_id):
 
 @savings_groups_blueprint.route('/savings-groups/<int:group_id>/members', methods=['POST'])
 @authenticate
-@service_permission_required('Savings Groups', 'write')
+@group_member_or_officer_required()
 def add_group_member(user_id, group_id):
-    """Add a member to a savings group"""
+    """Add a member to a savings group - Only group officers can add members"""
     group = SavingsGroup.query.filter_by(id=group_id).first()
-    
+
     if not group:
         return jsonify({'status': 'fail', 'message': 'Savings group not found.'}), 404
+
+    # Check if requesting user is an officer in this group (unless admin)
+    requesting_user = User.query.filter_by(id=user_id).first()
+    if not (requesting_user.is_super_admin or requesting_user.is_service_admin('Savings Groups')):
+        requesting_member = GroupMember.query.filter_by(
+            user_id=user_id,
+            group_id=group_id,
+            is_active=True
+        ).first()
+
+        if not requesting_member or not requesting_member.is_officer():
+            return jsonify({
+                'status': 'fail',
+                'message': 'Only group officers can add new members.'
+            }), 403
 
     if not group.can_add_member():
         return jsonify({'status': 'fail', 'message': 'Cannot add member. Group is full or not accepting members.'}), 400
@@ -229,65 +409,134 @@ def add_group_member(user_id, group_id):
     if not post_data:
         return jsonify(response_object), 400
 
+    # Support two modes: adding existing user or creating new user
     target_user_id = post_data.get('user_id')
+    email = post_data.get('email')
+    username = post_data.get('username')
+    password = post_data.get('password')
+
     name = post_data.get('name')
     gender = post_data.get('gender')
     phone = post_data.get('phone')
     role = post_data.get('role', 'MEMBER')
 
-    if not target_user_id or not name or not gender:
-        response_object['message'] = 'User ID, name, and gender are required.'
+    if not name or not gender:
+        response_object['message'] = 'Name and gender are required.'
         return jsonify(response_object), 400
 
-    # Validate target user exists
-    target_user = User.query.filter_by(id=target_user_id).first()
-    if not target_user:
-        response_object['message'] = 'Target user not found.'
-        return jsonify(response_object), 404
-
-    # Check if user is already a member
-    existing_member = GroupMember.query.filter_by(group_id=group_id, user_id=target_user_id).first()
-    if existing_member:
-        response_object['message'] = 'User is already a member of this group.'
+    if role not in ['MEMBER', 'OFFICER', 'FOUNDER']:
+        response_object['message'] = 'Invalid role. Must be MEMBER, OFFICER, or FOUNDER.'
         return jsonify(response_object), 400
 
     try:
-        # Create group member
-        member = GroupMember(
-            group_id=group_id,
-            user_id=target_user_id,
-            name=name,
-            gender=gender,
-            phone=phone,
-            role=role
-        )
+        target_user = None
 
-        db.session.add(member)
-        
+        # If user_id provided, use existing user
+        if target_user_id:
+            target_user = User.query.filter_by(id=target_user_id).first()
+            if not target_user:
+                response_object['message'] = 'Target user not found.'
+                return jsonify(response_object), 404
+
+        # If email/username provided, create new user or find existing
+        elif email and username:
+            # Check if user already exists
+            target_user = User.query.filter(
+                (User.email == email) | (User.username == username)
+            ).first()
+
+            if target_user:
+                # User exists, use existing user
+                target_user_id = target_user.id
+            else:
+                # Create new user
+                if not password:
+                    response_object['message'] = 'Password required for new user.'
+                    return jsonify(response_object), 400
+
+                target_user = User(
+                    username=username,
+                    email=email,
+                    password=password
+                )
+                db.session.add(target_user)
+                db.session.flush()  # Get user ID
+                target_user_id = target_user.id
+        else:
+            response_object['message'] = 'Either user_id or email/username must be provided.'
+            return jsonify(response_object), 400
+
+        # Check if user is already a member
+        existing_member = GroupMember.query.filter_by(
+            group_id=group_id,
+            user_id=target_user_id
+        ).first()
+
+        if existing_member:
+            if existing_member.is_active:
+                response_object['message'] = 'User is already an active member of this group.'
+                return jsonify(response_object), 400
+            else:
+                # Reactivate existing member
+                existing_member.is_active = True
+                existing_member.name = name
+                existing_member.gender = gender
+                existing_member.phone = phone
+                existing_member.role = role
+                member = existing_member
+        else:
+            # Create new group member
+            member = GroupMember(
+                group_id=group_id,
+                user_id=target_user_id,
+                name=name,
+                gender=gender,
+                phone=phone,
+                role=role
+            )
+            db.session.add(member)
+
         # Update group member count
-        group.members_count += 1
+        group.members_count = GroupMember.query.filter_by(
+            group_id=group_id,
+            is_active=True
+        ).count() + (1 if not existing_member or not existing_member.is_active else 0)
+
         group.update_state()  # Check if state should change
 
         db.session.commit()
 
         # Create notification for new member
-        create_system_notification(
-            user_id=target_user_id,
-            message=f'You have been added to savings group "{group.name}"',
-            notification_type='info',
-            title='Added to Savings Group',
-            service_id=Service.query.filter_by(name='Savings Groups').first().id
-        )
+        service = Service.query.filter_by(name='Savings Groups').first()
+        if service:
+            create_system_notification(
+                user_id=target_user_id,
+                message=f'You have been added to savings group "{group.name}" as a {role.lower()}.',
+                notification_type='info',
+                title='Added to Savings Group',
+                service_id=service.id
+            )
 
         return jsonify({
             'status': 'success',
             'message': 'Member added successfully.',
-            'data': {'member': member.to_json()}
+            'data': {
+                'member': member.to_json(),
+                'group': group.to_json()
+            }
         }), 201
 
-    except exc.IntegrityError:
+    except exc.IntegrityError as e:
         db.session.rollback()
+        if 'unique constraint' in str(e).lower():
+            response_object['message'] = 'User already exists or is already a member.'
+        else:
+            response_object['message'] = 'Failed to add member due to data conflict.'
         return jsonify(response_object), 400
+    except Exception as e:
+        db.session.rollback()
+        response_object['message'] = 'Failed to add member to group.'
+        return jsonify(response_object), 500
 
 
 @savings_groups_blueprint.route('/savings-groups/<int:group_id>/members', methods=['GET'])
@@ -1081,7 +1330,7 @@ def get_group_analytics(user_id, group_id):
             GroupMember
         ).filter(
             GroupMember.group_id == group_id,
-            GroupMember.is_active == True
+            GroupMember.is_active.is_(True)
         ).scalar() or 0
         
         # Meeting attendance statistics (last 3 months)
@@ -1094,7 +1343,7 @@ def get_group_analytics(user_id, group_id):
         attended_meetings = MeetingAttendance.query.filter(
             MeetingAttendance.group_id == group_id,
             MeetingAttendance.meeting_date >= three_months_ago,
-            MeetingAttendance.attended == True
+            MeetingAttendance.attended.is_(True)
         ).count()
         
         attendance_rate = (attended_meetings / recent_meetings * 100) if recent_meetings > 0 else 0

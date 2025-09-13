@@ -107,7 +107,10 @@ export const loansAPI = {
 };
 
 export const notificationsAPI = {
-  getNotifications: () => apiClient.get('/notifications'),
-  markAsRead: (id) => apiClient.put(`/notifications/${id}/read`),
+  getNotifications: (userId) => apiClient.get(`/notifications/user/${userId}`),
+  getUnreadCount: (userId) => apiClient.get(`/notifications/user/${userId}/unread-count`),
+  markAsRead: (id) => apiClient.post(`/notifications/${id}/read`),
+  markAllAsRead: (userId) => apiClient.post(`/notifications/user/${userId}/mark-all-read`),
   deleteNotification: (id) => apiClient.delete(`/notifications/${id}`),
+  createNotification: (data) => apiClient.post('/notifications', data),
 };
