@@ -98,3 +98,12 @@ jobs:
         docker build ./services/users-db -t testdriven-backend-db:$COMMIT_SHORT
         docker tag testdriven-backend-db:$COMMIT_SHORT $REPO/testdriven-backend-db:$TAG
         docker push $REPO/testdriven-backend-db:$TAG
+
+    - name: Deploy to ECS (staging only)
+      if: github.ref == 'refs/heads/staging'
+      run: |
+        # Install jq for JSON processing
+        sudo apt-get update && sudo apt-get install -y jq
+
+        # Deploy ECS services with zero-downtime updates
+        ./scripts/deploy-ecs-staging.sh

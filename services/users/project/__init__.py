@@ -58,8 +58,9 @@ def create_app(script_info=None):
         return {
             'status': 'healthy',
             'message': 'Savings Groups Platform is running',
-            'version': '1.0.1-ecr-test',
-            'deployment': 'ECR Pipeline Test'
+            'version': '1.1.0-ecs-staging',
+            'deployment': 'ECS Zero-Downtime Deployment',
+            'features': ['automated-migrations', 'zero-downtime', 'health-checks']
         }
 
     # shell context for flask cli
