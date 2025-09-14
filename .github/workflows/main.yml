@@ -99,7 +99,7 @@ jobs:
         docker tag testdriven-backend-db:$COMMIT_SHORT $REPO/testdriven-backend-db:$TAG
         docker push $REPO/testdriven-backend-db:$TAG
 
-    - name: Deploy to ECS (staging only)
+    - name: Deploy to ECS (staging)
       if: github.ref == 'refs/heads/staging'
       run: |
         # Install jq for JSON processing
@@ -107,3 +107,17 @@ jobs:
 
         # Deploy ECS services with zero-downtime updates
         ./scripts/deploy-ecs-staging.sh
+
+    - name: Deploy to ECS (production)
+      if: github.ref == 'refs/heads/production'
+      run: |
+        # Install jq for JSON processing
+        sudo apt-get update && sudo apt-get install -y jq
+
+        # Deploy ECS production services (requires manual RDS setup first)
+        echo "🚀 Production deployment triggered"
+        echo "⚠️  Note: Ensure RDS and ALB are deployed before ECS services"
+        echo "📋 Manual steps required:"
+        echo "   1. Deploy RDS: ./scripts/deploy-rds.sh production [password]"
+        echo "   2. Deploy ALB: ./scripts/deploy-alb.sh production"
+        echo "   3. Deploy ECS: ./scripts/deploy-ecs-production.sh [db-password] [secret-key]"

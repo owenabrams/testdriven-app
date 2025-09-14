@@ -44,6 +44,13 @@ echo "✅ Using subnets: $SUBNET_IDS"
 
 # Deploy CloudFormation stack
 echo "🏗️  Deploying CloudFormation stack..."
+
+# Use environment-specific template if it exists
+if [ "$ENVIRONMENT" = "production" ] && [ -f "infrastructure/alb-production.yml" ]; then
+    TEMPLATE_FILE="infrastructure/alb-production.yml"
+    echo "✅ Using production-specific ALB template"
+fi
+
 aws cloudformation deploy \
     --template-file "$TEMPLATE_FILE" \
     --stack-name "$STACK_NAME" \

@@ -28,8 +28,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Copy and set permissions for entrypoint
-COPY entrypoint-prod.sh /usr/src/app/entrypoint-prod.sh
-RUN chmod +x /usr/src/app/entrypoint-prod.sh
+COPY entrypoint-stage.sh /usr/src/app/entrypoint-stage.sh
+RUN chmod +x /usr/src/app/entrypoint-stage.sh
 
 # Create non-root user
 RUN adduser --disabled-password --gecos '' app
@@ -39,5 +39,5 @@ USER app
 # Expose port
 EXPOSE 5000
 
-# Use entrypoint script
-ENTRYPOINT ["/usr/src/app/entrypoint-prod.sh"]
+# Use staging entrypoint script
+ENTRYPOINT ["/usr/src/app/entrypoint-stage.sh"]
