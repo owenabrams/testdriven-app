@@ -1,0 +1,30 @@
+{
+  "containerDefinitions": [
+    {
+      "name": "client",
+      "image": "%s.dkr.ecr.us-east-1.amazonaws.com/testdriven-frontend:staging",
+      "essential": true,
+      "memoryReservation": 300,
+      "portMappings": [
+        {
+          "hostPort": 0,
+          "protocol": "tcp",
+          "containerPort": 80
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/testdriven-client-staging",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "family": "testdriven-client-staging-td",
+  "networkMode": "bridge",
+  "requiresCompatibilities": ["EC2"],
+  "executionRoleArn": "arn:aws:iam::%s:role/testdriven-staging-ecs-execution-role",
+  "taskRoleArn": "arn:aws:iam::%s:role/testdriven-staging-ecs-task-role"
+}

@@ -1,0 +1,218 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ECS Cluster and Services for TestDriven App'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+    Description: Environment name
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where the cluster will be created
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of subnet IDs for the cluster
+  
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair for SSH access
+  
+  LoadBalancerArn:
+    Type: String
+    Description: ARN of the Application Load Balancer
+  
+  ClientTargetGroupArn:
+    Type: String
+    Description: ARN of the Client Target Group
+  
+  UsersTargetGroupArn:
+    Type: String
+    Description: ARN of the Users Target Group
+  
+  ClientTaskDefinitionArn:
+    Type: String
+    Description: ARN of the Client Task Definition
+  
+  UsersTaskDefinitionArn:
+    Type: String
+    Description: ARN of the Users Task Definition
+
+Resources:
+  # ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub 'testdriven-${Environment}-cluster'
+      Tags:
+        - Key: Name
+          Value: !Sub 'testdriven-${Environment}-cluster'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Security Group for ECS Instances
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'testdriven-${Environment}-ecs-sg'
+      GroupDescription: Security group for ECS instances
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: SSH access
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+          Description: All traffic from ALB
+      Tags:
+        - Key: Name
+          Value: !Sub 'testdriven-${Environment}-ecs-sg'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # IAM Role for ECS Instances
+  ECSInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'testdriven-${Environment}-ecs-instance-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+      Path: /
+
+  # Instance Profile for ECS Instances
+  ECSInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref ECSInstanceRole
+
+  # Launch Template for ECS Instances
+  ECSLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub 'testdriven-${Environment}-ecs-lt'
+      LaunchTemplateData:
+        ImageId: ami-0c02fb55956c7d316  # Amazon ECS-Optimized Amazon Linux 2 AMI
+        InstanceType: t3.micro
+        KeyName: !Ref KeyPairName
+        IamInstanceProfile:
+          Arn: !GetAtt ECSInstanceProfile.Arn
+        SecurityGroupIds:
+          - !Ref ECSSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config
+            yum update -y
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub 'testdriven-${Environment}-ecs-instance'
+              - Key: Environment
+                Value: !Ref Environment
+
+  # Auto Scaling Group for ECS Instances
+  ECSAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub 'testdriven-${Environment}-ecs-asg'
+      VPCZoneIdentifier: !Ref SubnetIds
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ECSLaunchTemplate
+        Version: !GetAtt ECSLaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 2
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub 'testdriven-${Environment}-ecs-instance'
+          PropagateAtLaunch: true
+        - Key: Environment
+          Value: !Ref Environment
+          PropagateAtLaunch: true
+
+  # ECS Service for Client
+  ClientService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub 'testdriven-client-${Environment}-service'
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref ClientTaskDefinitionArn
+      DesiredCount: 1
+      LaunchType: EC2
+      LoadBalancers:
+        - ContainerName: client
+          ContainerPort: 80
+          TargetGroupArn: !Ref ClientTargetGroupArn
+      PlacementStrategies:
+        - Type: spread
+          Field: attribute:ecs.availability-zone
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      Tags:
+        - Key: Name
+          Value: !Sub 'testdriven-client-${Environment}-service'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ECS Service for Users
+  UsersService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub 'testdriven-users-${Environment}-service'
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref UsersTaskDefinitionArn
+      DesiredCount: 1
+      LaunchType: EC2
+      LoadBalancers:
+        - ContainerName: users
+          ContainerPort: 5000
+          TargetGroupArn: !Ref UsersTargetGroupArn
+      PlacementStrategies:
+        - Type: spread
+          Field: attribute:ecs.availability-zone
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      Tags:
+        - Key: Name
+          Value: !Sub 'testdriven-users-${Environment}-service'
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  ClusterName:
+    Description: Name of the ECS Cluster
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterName'
+  
+  ClientServiceArn:
+    Description: ARN of the Client Service
+    Value: !Ref ClientService
+    Export:
+      Name: !Sub '${AWS::StackName}-ClientServiceArn'
+  
+  UsersServiceArn:
+    Description: ARN of the Users Service
+    Value: !Ref UsersService
+    Export:
+      Name: !Sub '${AWS::StackName}-UsersServiceArn'

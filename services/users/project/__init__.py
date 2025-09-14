@@ -55,7 +55,13 @@ def create_app(script_info=None):
     # Health check endpoint for Docker
     @app.route('/ping')
     def ping():
-        return {'status': 'healthy', 'message': 'Savings Groups Platform is running'}
+        return {
+            'status': 'healthy',
+            'message': 'Savings Groups Platform is running',
+            'version': '1.1.0-ecs-staging',
+            'deployment': 'ECS Zero-Downtime Deployment',
+            'features': ['automated-migrations', 'zero-downtime', 'health-checks']
+        }
 
     # shell context for flask cli
     @app.shell_context_processor
