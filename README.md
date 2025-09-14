@@ -27,10 +27,22 @@ This application features a modern 3-service microservices architecture with aut
 #### **Local Development**
 ```bash
 # Start all services locally
-docker-compose up -d
+docker-compose up -d --build
+
+# Create and seed database
+docker-compose exec backend python manage.py recreate_db
+docker-compose exec backend python manage.py seed_db
 
 # Run tests
-./test.sh
+./test-tutorial.sh server    # Backend tests
+./test-tutorial.sh client    # Frontend tests
+./test-tutorial.sh e2e       # End-to-end tests
+
+# Access database
+docker-compose exec db psql -U postgres
+
+# Stop services
+docker-compose down
 ```
 
 #### **Production Deployment**
@@ -40,6 +52,9 @@ git push origin production
 
 # Manual deployment
 ./scripts/deploy-production-complete.sh DB_PASSWORD SECRET_KEY
+
+# Local production testing
+./scripts/test-local-production.sh
 ```
 
 ### 📋 **Key Adaptations from TestDriven Tutorial**

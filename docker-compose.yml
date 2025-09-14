@@ -9,7 +9,7 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=development
-      - DATABASE_URL=sqlite:///instance/dev.db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/testdriven_dev
       - SECRET_KEY=dev-secret-key
     volumes:
       - ./services/users:/usr/src/app

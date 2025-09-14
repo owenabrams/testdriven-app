@@ -11,41 +11,88 @@ inspect() {
 
 # run server-side tests
 server() {
+  echo "🚀 Starting backend services for testing..."
   docker-compose up -d --build
-  docker-compose exec users python manage.py test
-  inspect $? users
-  docker-compose exec users flake8 project
-  inspect $? users-lint
+
+  echo "⏳ Waiting for services to be ready..."
+  sleep 10
+
+  echo "🧪 Running backend unit tests..."
+  docker-compose exec backend python manage.py test
+  inspect $? backend-tests
+
+  echo "🔍 Running backend linting..."
+  docker-compose exec backend flake8 project
+  inspect $? backend-lint
+
+  echo "🛑 Stopping services..."
   docker-compose down
 }
 
 # run client-side tests
 client() {
+  echo "🚀 Starting frontend services for testing..."
   docker-compose up -d --build
-  docker-compose exec client npm test -- --coverage
-  inspect $? client
+
+  echo "⏳ Waiting for services to be ready..."
+  sleep 10
+
+  echo "🧪 Running frontend tests..."
+  docker-compose exec frontend npm test -- --coverage --watchAll=false
+  inspect $? frontend-tests
+
+  echo "🛑 Stopping services..."
   docker-compose down
 }
 
 # run e2e tests
 e2e() {
+  echo "🚀 Starting staging environment for E2E tests..."
   docker-compose -f docker-compose-stage.yml up -d --build
-  docker-compose -f docker-compose-stage.yml exec users python manage.py recreate_db
-  ./node_modules/.bin/cypress run --config baseUrl=http://localhost
-  inspect $? e2e
+
+  echo "⏳ Waiting for services to be ready..."
+  sleep 15
+
+  echo "🗄️  Setting up test database..."
+  docker-compose -f docker-compose-stage.yml exec backend python manage.py recreate_db
+  docker-compose -f docker-compose-stage.yml exec backend python manage.py seed_db
+
+  echo "🌐 Running Cypress E2E tests..."
+  ./node_modules/.bin/cypress run --config baseUrl=http://localhost:3000
+  inspect $? e2e-tests
+
+  echo "🛑 Stopping staging environment..."
   docker-compose -f docker-compose-stage.yml down
 }
 
 # run all tests
 all() {
+  echo "🧪 Running complete test suite..."
+  echo "================================="
+
+  echo ""
+  echo "1️⃣  Backend Tests"
+  echo "----------------"
   docker-compose up -d --build
-  docker-compose exec users python manage.py test
-  inspect $? users
-  docker-compose exec users flake8 project
-  inspect $? users-lint
-  docker-compose exec client npm test -- --coverage
-  inspect $? client
+  sleep 10
+
+  docker-compose exec backend python manage.py test
+  inspect $? backend-tests
+
+  docker-compose exec backend flake8 project
+  inspect $? backend-lint
+
+  echo ""
+  echo "2️⃣  Frontend Tests"
+  echo "-----------------"
+  docker-compose exec frontend npm test -- --coverage --watchAll=false
+  inspect $? frontend-tests
+
   docker-compose down
+
+  echo ""
+  echo "3️⃣  End-to-End Tests"
+  echo "-------------------"
   e2e
 }
 
