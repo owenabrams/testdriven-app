@@ -27,9 +27,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . .
 
-# Copy and set permissions for entrypoint
+# Copy and set permissions for entrypoints
 COPY entrypoint-prod.sh /usr/src/app/entrypoint-prod.sh
-RUN chmod +x /usr/src/app/entrypoint-prod.sh
+COPY entrypoint-rds.sh /usr/src/app/entrypoint-rds.sh
+RUN chmod +x /usr/src/app/entrypoint-prod.sh /usr/src/app/entrypoint-rds.sh
 
 # Create non-root user
 RUN adduser --disabled-password --gecos '' app
@@ -39,5 +40,5 @@ USER app
 # Expose port
 EXPOSE 5000
 
-# Use entrypoint script
-ENTRYPOINT ["/usr/src/app/entrypoint-prod.sh"]
+# Use RDS entrypoint script for production
+ENTRYPOINT ["/usr/src/app/entrypoint-rds.sh"]

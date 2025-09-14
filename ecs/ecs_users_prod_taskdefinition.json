@@ -1,0 +1,44 @@
+{
+  "containerDefinitions": [
+    {
+      "name": "users",
+      "image": "%s.dkr.ecr.us-east-1.amazonaws.com/testdriven-backend:production",
+      "essential": true,
+      "memoryReservation": 512,
+      "portMappings": [
+        {
+          "hostPort": 0,
+          "protocol": "tcp",
+          "containerPort": 5000
+        }
+      ],
+      "environment": [
+        {
+          "name": "APP_SETTINGS",
+          "value": "project.config.ProductionConfig"
+        },
+        {
+          "name": "DATABASE_URL",
+          "value": "postgresql://webapp:%s@%s:5432/users_production"
+        },
+        {
+          "name": "SECRET_KEY",
+          "value": "%s"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/testdriven-users-production",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "family": "testdriven-users-production-td",
+  "networkMode": "bridge",
+  "requiresCompatibilities": ["EC2"],
+  "executionRoleArn": "arn:aws:iam::%s:role/testdriven-production-ecs-execution-role",
+  "taskRoleArn": "arn:aws:iam::%s:role/testdriven-production-ecs-task-role"
+}
