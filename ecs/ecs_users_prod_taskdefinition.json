@@ -29,7 +29,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/testdriven-users-production",
+          "awslogs-group": "testdriven-users-prod",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
         }

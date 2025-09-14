@@ -43,36 +43,33 @@ Internet → ALB → ECS Cluster (EC2) → RDS PostgreSQL
 1. **AWS CLI configured** with appropriate permissions
 2. **GitHub repository** with staging branch working
 3. **Production branch** created from staging
+4. **GitHub Secrets configured** (see PRODUCTION_SECRETS_SETUP.md)
 
-### **Option 1: Complete Automated Deployment**
+### **Option 1: Automated Deployment (Recommended)**
 ```bash
-# Deploy everything at once
+# Automatic deployment on push to production branch
+git push origin production
+
+# GitHub Actions will:
+# 1. Run tests
+# 2. Build and push Docker images
+# 3. Update ECS task definitions
+# 4. Deploy services with zero downtime
+```
+
+### **Option 2: Manual Deployment**
+
+#### **Step 1: Deploy Infrastructure**
+```bash
 ./scripts/deploy-production-complete.sh DB_PASSWORD SECRET_KEY
 ```
 
-### **Option 2: Step-by-Step Deployment**
-
-#### **Step 1: Deploy ALB**
+#### **Step 2: Deploy Services Only**
 ```bash
-./scripts/deploy-alb.sh production
+./scripts/deploy-ecs-production-automated.sh
 ```
 
-#### **Step 2: Deploy RDS**
-```bash
-./scripts/deploy-rds.sh production DB_PASSWORD
-```
-
-#### **Step 3: Deploy ECS Infrastructure**
-```bash
-./scripts/deploy-ecs.sh production
-```
-
-#### **Step 4: Deploy ECS Services**
-```bash
-./scripts/deploy-ecs-production.sh DB_PASSWORD SECRET_KEY
-```
-
-#### **Step 5: Run Database Migrations**
+#### **Step 3: Run Database Migrations**
 ```bash
 ./scripts/migrate-production-db.sh
 ```

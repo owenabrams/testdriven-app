@@ -110,14 +110,19 @@ jobs:
 
     - name: Deploy to ECS (production)
       if: github.ref == 'refs/heads/production'
+      env:
+        AWS_RDS_URI: ${{ secrets.AWS_RDS_URI }}
+        PRODUCTION_SECRET_KEY: ${{ secrets.PRODUCTION_SECRET_KEY }}
       run: |
         # Install jq for JSON processing
         sudo apt-get update && sudo apt-get install -y jq
 
-        # Deploy ECS production services (requires manual RDS setup first)
-        echo "🚀 Production deployment triggered"
-        echo "⚠️  Note: Ensure RDS and ALB are deployed before ECS services"
-        echo "📋 Manual steps required:"
-        echo "   1. Deploy RDS: ./scripts/deploy-rds.sh production [password]"
-        echo "   2. Deploy ALB: ./scripts/deploy-alb.sh production"
-        echo "   3. Deploy ECS: ./scripts/deploy-ecs-production.sh [db-password] [secret-key]"
+        # Check if required secrets are set
+        if [ -z "$AWS_RDS_URI" ] || [ -z "$PRODUCTION_SECRET_KEY" ]; then
+          echo "❌ Missing required secrets: AWS_RDS_URI and PRODUCTION_SECRET_KEY"
+          echo "📋 Please set these in GitHub repository secrets"
+          exit 1
+        fi
+
+        # Deploy ECS production services with automation
+        ./scripts/deploy-ecs-production-automated.sh
