@@ -1,0 +1,179 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ECS Task Definitions for TestDriven App'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+    Description: Environment name
+  
+  ECRRegistry:
+    Type: String
+    Description: ECR registry URL (e.g., 123456789.dkr.ecr.us-east-1.amazonaws.com)
+  
+  ImageTag:
+    Type: String
+    Default: staging
+    Description: Docker image tag to use
+
+Resources:
+  # ECS Execution Role
+  ECSExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'testdriven-${Environment}-ecs-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: CloudWatchLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # ECS Task Role
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'testdriven-${Environment}-ecs-task-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+
+  # CloudWatch Log Groups
+  ClientLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/testdriven-client-${Environment}'
+      RetentionInDays: 7
+
+  UsersLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/testdriven-users-${Environment}'
+      RetentionInDays: 7
+
+  UsersDBLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/testdriven-users-db-${Environment}'
+      RetentionInDays: 7
+
+  # Task Definition 1: Client (React App)
+  ClientTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'testdriven-client-${Environment}-td'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Ref ECSExecutionRole
+      TaskRoleArn: !Ref ECSTaskRole
+      ContainerDefinitions:
+        - Name: client
+          Image: !Sub '${ECRRegistry}/testdriven-frontend:${ImageTag}'
+          Memory: 300
+          PortMappings:
+            - ContainerPort: 80
+              HostPort: 0
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ClientLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+          Essential: true
+
+  # Task Definition 2: Users API + Database
+  UsersTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'testdriven-users-${Environment}-td'
+      NetworkMode: bridge
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Ref ECSExecutionRole
+      TaskRoleArn: !Ref ECSTaskRole
+      ContainerDefinitions:
+        - Name: users-db
+          Image: !Sub '${ECRRegistry}/testdriven-backend-db:${ImageTag}'
+          Memory: 300
+          PortMappings:
+            - ContainerPort: 5432
+          Environment:
+            - Name: POSTGRES_USER
+              Value: postgres
+            - Name: POSTGRES_PASSWORD
+              Value: postgres
+            - Name: POSTGRES_DB
+              Value: users_stage
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref UsersDBLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+          Essential: true
+        - Name: users
+          Image: !Sub '${ECRRegistry}/testdriven-backend:${ImageTag}'
+          Memory: 300
+          PortMappings:
+            - ContainerPort: 5000
+              HostPort: 0
+          Links:
+            - users-db
+          Environment:
+            - Name: SECRET_KEY
+              Value: my_precious
+            - Name: APP_SETTINGS
+              Value: project.config.ProductionConfig
+            - Name: DATABASE_URL
+              Value: postgresql://postgres:postgres@users-db:5432/users_stage
+            - Name: DATABASE_TEST_URL
+              Value: postgresql://postgres:postgres@users-db:5432/users_test
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref UsersLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+          Essential: true
+          DependsOn:
+            - ContainerName: users-db
+              Condition: START
+
+Outputs:
+  ClientTaskDefinitionArn:
+    Description: ARN of the Client Task Definition
+    Value: !Ref ClientTaskDefinition
+    Export:
+      Name: !Sub '${AWS::StackName}-ClientTaskDefinitionArn'
+  
+  UsersTaskDefinitionArn:
+    Description: ARN of the Users Task Definition
+    Value: !Ref UsersTaskDefinition
+    Export:
+      Name: !Sub '${AWS::StackName}-UsersTaskDefinitionArn'
+  
+  ECSExecutionRoleArn:
+    Description: ARN of the ECS Execution Role
+    Value: !GetAtt ECSExecutionRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ECSExecutionRoleArn'

@@ -92,3 +92,9 @@ jobs:
           --build-arg REACT_APP_USERS_SERVICE_URL=$REACT_APP_USERS_SERVICE_URL
         docker tag testdriven-frontend:$COMMIT_SHORT $REPO/testdriven-frontend:$TAG
         docker push $REPO/testdriven-frontend:$TAG
+
+    - name: Build and push database image
+      run: |
+        docker build ./services/users-db -t testdriven-backend-db:$COMMIT_SHORT
+        docker tag testdriven-backend-db:$COMMIT_SHORT $REPO/testdriven-backend-db:$TAG
+        docker push $REPO/testdriven-backend-db:$TAG
