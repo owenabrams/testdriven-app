@@ -6,9 +6,8 @@ This guide implements the complete ECS Production setup following the TestDriven
 
 ```
 Internet → ALB → ECS Cluster (EC2) → RDS PostgreSQL
-                 ├── Client Service (React)
-                 ├── Users Service (Flask API)
-                 └── Swagger Service (API Docs)
+                 ├── Frontend Service (React)
+                 └── Backend Service (Flask API)
 ```
 
 ## 🏗️ Infrastructure Components
@@ -19,11 +18,9 @@ Internet → ALB → ECS Cluster (EC2) → RDS PostgreSQL
 - **Target Groups**:
   - `testdriven-client-prod-tg` (Port 80, Health: `/`)
   - `testdriven-users-prod-tg` (Port 5000, Health: `/ping`)
-  - `testdriven-swagger-prod-tg` (Port 8080, Health: `/`)
 - **Routing Rules**:
-  - `/users*`, `/auth*` → Users API
-  - `/swagger*` → Swagger UI
-  - `/*` → React Client
+  - `/users*`, `/auth*` → Backend API
+  - `/*` → React Frontend
 
 ### **2. ECS Cluster**
 - **Name**: `testdriven-production-cluster`

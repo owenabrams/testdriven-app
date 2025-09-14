@@ -93,7 +93,7 @@ deploy_cluster() {
     cluster="testdriven-${ENVIRONMENT}-cluster"
 
     echo ""
-    echo "🔧 Deploying Users Service (with RDS)..."
+    echo "🔧 Deploying Users Service (Backend with RDS)..."
     service="testdriven-users-${ENVIRONMENT}-service"
     template="ecs_users_prod_taskdefinition.json"
     task_template=$(cat "ecs/$template")
@@ -104,7 +104,7 @@ deploy_cluster() {
     wait_for_deployment
 
     echo ""
-    echo "🔧 Deploying Client Service..."
+    echo "🔧 Deploying Client Service (Frontend)..."
     service="testdriven-client-${ENVIRONMENT}-service"
     template="ecs_client_prod_taskdefinition.json"
     task_template=$(cat "ecs/$template")

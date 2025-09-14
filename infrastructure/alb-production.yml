@@ -100,26 +100,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # Target Group for Swagger (if needed later)
-  SwaggerTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: !Sub 'testdriven-swagger-${Environment}-tg'
-      Port: 8080
-      Protocol: HTTP
-      TargetType: instance
-      VpcId: !Ref VpcId
-      HealthCheckPath: /
-      HealthCheckProtocol: HTTP
-      HealthCheckIntervalSeconds: 30
-      HealthCheckTimeoutSeconds: 5
-      HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 3
-      Tags:
-        - Key: Name
-          Value: !Sub 'testdriven-swagger-${Environment}-tg'
-        - Key: Environment
-          Value: !Ref Environment
+
 
   # ALB Listener
   ALBListener:
@@ -145,18 +126,7 @@ Resources:
       ListenerArn: !Ref ALBListener
       Priority: 100
 
-  # Swagger Listener Rule (if needed later)
-  SwaggerListenerRule:
-    Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    Properties:
-      Actions:
-        - Type: forward
-          TargetGroupArn: !Ref SwaggerTargetGroup
-      Conditions:
-        - Field: path-pattern
-          Values: ['/swagger*']
-      ListenerArn: !Ref ALBListener
-      Priority: 200
+
 
 Outputs:
   LoadBalancerDNS:
@@ -183,11 +153,7 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-UsersTargetGroupArn'
   
-  SwaggerTargetGroupArn:
-    Description: ARN of the Swagger Target Group
-    Value: !Ref SwaggerTargetGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-SwaggerTargetGroupArn'
+
   
   SecurityGroupId:
     Description: Security Group ID for the ALB
