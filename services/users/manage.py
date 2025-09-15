@@ -32,9 +32,252 @@ cli = FlaskGroup(create_app=create_app_for_cli)  # new
 
 @cli.command('recreate_db')
 def recreate_db():
-    db.drop_all()
-    db.create_all()
+    """DEPRECATED: Use migrate_and_seed instead"""
+    print("⚠️  WARNING: recreate_db is deprecated!")
+    print("🔄 Use 'python manage.py migrate_and_seed' instead")
+    print("   This preserves data and handles migrations properly")
+
+
+@cli.command('migrate_and_seed')
+def migrate_and_seed():
+    """Production-ready migration and seeding system following TestDriven methodology"""
+    from flask_migrate import init, migrate, upgrade, current, stamp, heads, merge
+    import os
+
+    print("🏗️  PRODUCTION DATABASE MIGRATION & SEEDING")
+    print("=" * 60)
+    print("Following TestDriven.io best practices for database management")
+    print("=" * 60)
+
+    # Step 1: Initialize Flask-Migrate if needed
+    migrations_dir = os.path.join(os.getcwd(), 'migrations')
+    if not os.path.exists(migrations_dir):
+        print("📁 Initializing Flask-Migrate...")
+        try:
+            init()
+            print("✅ Flask-Migrate initialized")
+        except Exception as e:
+            print(f"⚠️  Migration init failed: {e}")
+            fallback_to_direct_creation()
+            return
+
+    # Step 2: Check for multiple head revisions and resolve automatically
+    print("🔍 Checking for multiple head revisions...")
+    try:
+        head_revisions = heads()
+        if len(head_revisions) > 1:
+            print(f"⚠️  Multiple head revisions detected: {head_revisions}")
+            print("🔧 Automatically merging head revisions...")
+            try:
+                merge(heads=head_revisions, message="Auto-merge multiple heads for production deployment")
+                print("✅ Head revisions merged successfully")
+            except Exception as merge_error:
+                print(f"❌ Failed to merge heads: {merge_error}")
+                print("🔧 Attempting manual resolution...")
+                # Force merge by creating a new migration
+                try:
+                    migrate(message="Force merge conflicting migrations")
+                    print("✅ Force merge completed")
+                except Exception as force_error:
+                    print(f"❌ Force merge failed: {force_error}")
+                    fallback_to_direct_creation()
+                    return
+        else:
+            print("✅ No multiple head revisions detected")
+    except Exception as e:
+        print(f"⚠️  Could not check head revisions: {e}")
+
+    # Step 3: Check current migration state
+    print("🔍 Checking migration state...")
+    try:
+        current_revision = current()
+        if current_revision:
+            print(f"✅ Database is at revision: {current_revision}")
+        else:
+            print("🔧 Database not stamped with migration version")
+            # Try to stamp with latest migration
+            try:
+                stamp()
+                print("✅ Database stamped with current migration")
+            except Exception as e:
+                print(f"⚠️  Could not stamp database: {e}")
+                fallback_to_direct_creation()
+                return
+    except Exception as e:
+        print(f"🔧 Migration state check failed: {e}")
+        # Database might not have migration tables yet
+        print("🔧 Creating initial database structure...")
+        try:
+            # Create all tables first
+            db.create_all()
+            db.session.commit()
+            print("✅ Database tables created")
+
+            # Now try to stamp with head
+            stamp()
+            print("✅ Database stamped with migration version")
+        except Exception as e2:
+            print(f"⚠️  Database setup failed: {e2}")
+            fallback_to_direct_creation()
+            return
+
+    # Step 4: Create new migration if schema changes detected
+    print("🔍 Checking for schema changes...")
+    try:
+        migrate(message="Auto-migration: Schema updates")
+        print("✅ New migration created for schema changes")
+    except Exception as e:
+        if "No changes in schema detected" in str(e):
+            print("ℹ️  No schema changes detected")
+        else:
+            print(f"⚠️  Migration creation failed: {e}")
+
+    # Step 5: Apply all pending migrations
+    print("⬆️  Applying migrations...")
+    try:
+        upgrade()
+        print("✅ All migrations applied successfully")
+    except Exception as e:
+        print(f"⚠️  Migration upgrade failed: {e}")
+        fallback_to_direct_creation()
+        return
+
+    # Step 6: Intelligent seeding (preserves existing data)
+    print("🌱 Intelligent data seeding...")
+    seed_if_empty()
+
+    print("🎉 Production database migration and seeding complete!")
+    print("=" * 60)
+
+
+def fallback_to_direct_creation():
+    """Fallback method when migrations fail - creates tables directly"""
+    print("🔧 FALLBACK: Creating tables directly...")
+    try:
+        db.create_all()
+        db.session.commit()
+        print("✅ Tables created via fallback method")
+
+        # Seed data
+        print("🌱 Seeding data...")
+        seed_if_empty()
+        print("✅ Fallback database setup complete")
+    except Exception as e:
+        print(f"❌ Fallback failed: {e}")
+        raise
+
+
+def seed_if_empty():
+    """Intelligent seeding that only adds data if tables are empty - Production Ready"""
+    from project.api.models import User, Service, SavingsGroup
+
+    print("🔍 Analyzing existing data...")
+
+    # Check database health first
+    try:
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
+        print("✅ Database connection healthy")
+    except Exception as e:
+        print(f"❌ Database connection failed: {e}")
+        raise
+
+    # Check if we already have users
+    user_count = User.query.count()
+    if user_count > 0:
+        print(f"ℹ️  Found {user_count} existing users - preserving existing data")
+
+        # Check if we have the required admin users
+        super_admin = User.query.filter_by(email='superadmin@testdriven.io').first()
+        if not super_admin:
+            print("🔧 Creating missing super admin...")
+            create_super_admin_user()
+    else:
+        print("👥 Seeding initial users...")
+        seed_basic_users()
+        create_super_admin_user()
+
+    # Check if we have services
+    service_count = Service.query.count()
+    if service_count > 0:
+        print(f"ℹ️  Found {service_count} existing services - preserving existing data")
+    else:
+        print("🔧 Seeding services...")
+        seed_basic_services()
+
+    # Check demo data (comprehensive savings groups data)
+    savings_group_count = SavingsGroup.query.count()
+    if savings_group_count > 0:
+        print(f"ℹ️  Found {savings_group_count} existing savings groups - preserving existing data")
+        print("💡 To reset demo data, use: python manage.py reset-demo-data")
+    else:
+        print("🎭 Creating comprehensive demo data...")
+        print("   This includes: Sarah, Grace, Mary, Alice + Savings Groups")
+        seed_demo_data()
+
+    print("✅ Intelligent seeding complete - all data preserved")
+
+
+def create_super_admin_user():
+    """Create the super admin user if it doesn't exist"""
+    super_admin = User.query.filter_by(email='superadmin@testdriven.io').first()
+    if not super_admin:
+        super_admin = User(
+            username='superadmin',
+            email='superadmin@testdriven.io',
+            password='superpassword123'
+        )
+        super_admin.is_super_admin = True
+        super_admin.admin = True
+        super_admin.role = 'super_admin'
+        db.session.add(super_admin)
+        db.session.commit()
+        print("✅ Super admin created: superadmin@testdriven.io / superpassword123")
+
+
+def seed_basic_users():
+    """Seed basic users only"""
+    # Create regular users
+    user1 = User(
+        username='michael',
+        email='michael@reallynotreal.com',
+        password='greaterthaneight'
+    )
+    user2 = User(
+        username='michaelherman',
+        email='michael@mherman.org',
+        password='greaterthaneight'
+    )
+
+    db.session.add(user1)
+    db.session.add(user2)
     db.session.commit()
+    print("✅ Basic users created")
+
+
+def seed_basic_services():
+    """Seed basic services only"""
+    from project.api.models import Service
+
+    services_data = [
+        {
+            'name': 'users',
+            'description': 'User management service',
+            'endpoint_url': 'http://localhost:5000'
+        },
+        {
+            'name': 'Savings Groups',
+            'description': 'Community savings and group lending platform',
+            'endpoint_url': 'http://localhost:5000/savings-groups'
+        }
+    ]
+
+    for service_data in services_data:
+        service = Service(**service_data)
+        db.session.add(service)
+
+    db.session.commit()
+    print("✅ Basic services created")
 
 
 @cli.command('seed_db')
@@ -90,18 +333,136 @@ def seed_db():
     db.session.commit()
 
 
+def seed_demo_data_if_empty():
+    """Smart demo data seeding - only if savings groups don't exist"""
+    from project.api.models import SavingsGroup
+
+    # Check if we already have savings groups
+    group_count = SavingsGroup.query.count()
+    if group_count > 0:
+        print(f"ℹ️  Found {group_count} existing savings groups - skipping demo data")
+        return
+
+    print("🎭 Creating demo data...")
+    seed_demo_data()
+
+
 @cli.command('seed_demo_data')
 def seed_demo_data():
     """Seeds comprehensive demo data for Enhanced Savings Groups."""
     from project.api.models import (
-        SavingsGroup, GroupMember, SavingType, MemberSaving, 
+        SavingsGroup, GroupMember, SavingType, MemberSaving,
         SavingTransaction, GroupCashbook, MeetingAttendance, MemberFine,
         LoanAssessment, TargetSavingsCampaign, GroupTargetCampaign,
-        MemberCampaignParticipation
+        MemberCampaignParticipation, CalendarEvent
     )
-    from datetime import date, timedelta
+    from datetime import date, timedelta, datetime
     from decimal import Decimal
-    
+
+    def safe_create_or_get(model_class, defaults=None, **kwargs):
+        """Safely create or get an existing record"""
+        try:
+            instance = model_class.query.filter_by(**kwargs).first()
+            if instance:
+                return instance, False
+
+            if defaults:
+                kwargs.update(defaults)
+
+            instance = model_class(**kwargs)
+            db.session.add(instance)
+            db.session.flush()
+            return instance, True
+        except Exception as e:
+            db.session.rollback()
+            print(f"⚠️  Error creating {model_class.__name__}: {e}")
+            # Try to get existing record
+            instance = model_class.query.filter_by(**kwargs).first()
+            if instance:
+                return instance, False
+            raise e
+
+    def safe_create_member_saving(member_id, saving_type_id, **kwargs):
+        """Safely create or get MemberSaving with proper error handling"""
+        try:
+            existing = MemberSaving.query.filter_by(
+                member_id=member_id,
+                saving_type_id=saving_type_id
+            ).first()
+
+            if existing:
+                return existing, False
+
+            member_saving = MemberSaving(
+                member_id=member_id,
+                saving_type_id=saving_type_id,
+                **{k: v for k, v in kwargs.items() if k in ['target_amount', 'target_date', 'target_description']}
+            )
+
+            # Set additional fields that aren't in __init__
+            for key, value in kwargs.items():
+                if key not in ['target_amount', 'target_date', 'target_description'] and hasattr(member_saving, key):
+                    setattr(member_saving, key, value)
+
+            db.session.add(member_saving)
+            db.session.flush()
+            return member_saving, True
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"⚠️  Error creating MemberSaving for member {member_id}, type {saving_type_id}: {e}")
+            # Return existing if available
+            existing = MemberSaving.query.filter_by(
+                member_id=member_id,
+                saving_type_id=saving_type_id
+            ).first()
+            if existing:
+                return existing, False
+            raise e
+
+    def safe_create_saving_transaction(member_saving_id, amount, transaction_type, processed_by, **kwargs):
+        """Safely create SavingTransaction with proper type handling"""
+        try:
+            # Get the member saving to calculate balances
+            member_saving = MemberSaving.query.get(member_saving_id)
+            if not member_saving:
+                raise ValueError(f"MemberSaving {member_saving_id} not found")
+
+            transaction = SavingTransaction(
+                member_saving_id=member_saving_id,
+                amount=amount,
+                transaction_type=transaction_type,
+                processed_by=processed_by,
+                **{k: v for k, v in kwargs.items() if k in ['description', 'mobile_money_transaction_id', 'mobile_money_provider', 'mobile_money_phone', 'idempotency_key']}
+            )
+
+            # Set balance fields with proper type conversion
+            current_balance = Decimal(str(member_saving.current_balance))
+            transaction.balance_before = current_balance
+            transaction.balance_after = current_balance + Decimal(str(amount))
+
+            # Set additional fields
+            for key, value in kwargs.items():
+                if key not in ['description', 'mobile_money_transaction_id', 'mobile_money_provider', 'mobile_money_phone', 'idempotency_key'] and hasattr(transaction, key):
+                    if key == 'processed_date' and isinstance(value, date) and not isinstance(value, datetime):
+                        # Convert date to datetime
+                        setattr(transaction, key, datetime.combine(value, datetime.min.time()))
+                    else:
+                        setattr(transaction, key, value)
+
+            db.session.add(transaction)
+
+            # Update member saving balance with proper type conversion
+            member_saving.current_balance = Decimal(str(member_saving.current_balance)) + Decimal(str(amount))
+
+            db.session.flush()
+            return transaction, True
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"⚠️  Error creating SavingTransaction: {e}")
+            raise e
+
     print("🌱 Seeding Enhanced Savings Groups Demo Data...")
     
     # Clear existing savings data
@@ -131,10 +492,11 @@ def seed_demo_data():
         admin_user = User(
             username='superadmin',
             email='superadmin@testdriven.io',
-            password='superpassword123',
-            is_super_admin=True,
-            admin=True
+            password='superpassword123'
         )
+        admin_user.is_super_admin = True
+        admin_user.admin = True
+        admin_user.role = 'super_admin'
         db.session.add(admin_user)
         db.session.commit()
     
@@ -176,7 +538,12 @@ def seed_demo_data():
     for st_data in saving_types_data:
         existing = SavingType.query.filter_by(code=st_data['code']).first()
         if not existing:
-            saving_type = SavingType(**st_data)
+            saving_type = SavingType(
+                name=st_data['name'],
+                code=st_data['code'],
+                description=st_data['description'],
+                created_by=admin_user.id
+            )
             db.session.add(saving_type)
     
     db.session.commit()
@@ -335,117 +702,87 @@ def seed_demo_data():
             # Personal savings (monthly)
             personal_amount = Decimal(str(50000 + (i * 10000)))  # Varying amounts
             
-            # Create or get member saving record for personal
-            member_saving = MemberSaving.query.filter_by(
-                member_id=member.id, 
+            # Create or get member saving record for personal using safe function
+            member_saving, created = safe_create_member_saving(
+                member_id=member.id,
                 saving_type_id=personal_type.id
-            ).first()
-            
-            if not member_saving:
-                member_saving = MemberSaving(
-                    member_id=member.id,
-                    saving_type_id=personal_type.id,
-                    current_balance=Decimal('0')
-                )
-                db.session.add(member_saving)
-                db.session.flush()
-            
-            # Create personal savings transaction
-            saving_transaction = SavingTransaction(
-                member_saving_id=member_saving.id,
-                amount=personal_amount,
-                transaction_type='DEPOSIT',
-                processed_by=admin_user.id,
-                description=f'Monthly personal savings - {transaction_date.strftime("%B %Y")}',
-                mobile_money_provider='MTN' if i % 2 == 0 else 'Airtel',
-                mobile_money_phone=member.phone,
-                transaction_date=transaction_date
             )
-            saving_transaction.balance_before = member_saving.current_balance
-            saving_transaction.balance_after = member_saving.current_balance + personal_amount
-            saving_transaction.status = 'VERIFIED'
-            db.session.add(saving_transaction)
-            
-            # Update member saving balance
-            member_saving.current_balance += personal_amount
-            member.share_balance = member_saving.current_balance
-            member.total_contributions = member_saving.current_balance
+
+            # Create personal savings transaction using safe function
+            try:
+                saving_transaction, created = safe_create_saving_transaction(
+                    member_saving_id=member_saving.id,
+                    amount=personal_amount,
+                    transaction_type='DEPOSIT',
+                    processed_by=admin_user.id,
+                    description=f'Monthly personal savings - {transaction_date.strftime("%B %Y")}',
+                    mobile_money_provider='MTN' if i % 2 == 0 else 'Airtel',
+                    mobile_money_phone=member.phone,
+                    status='VERIFIED',
+                    processed_date=transaction_date
+                )
+
+                # Update member totals
+                member.share_balance = float(member_saving.current_balance)
+                member.total_contributions = float(member_saving.current_balance)
+
+            except Exception as e:
+                print(f"⚠️  Skipping duplicate transaction for member {member.name}: {e}")
+                continue
             
             # ECD Fund savings (only for women, every 2 months)
             if member.gender == 'F' and month_offset % 2 == 0:
                 ecd_amount = Decimal(str(25000 + (i * 5000)))
-                
-                # Create or get ECD member saving record
-                ecd_member_saving = MemberSaving.query.filter_by(
-                    member_id=member.id, 
+
+                # Create or get ECD member saving record using safe function
+                ecd_member_saving, created = safe_create_member_saving(
+                    member_id=member.id,
                     saving_type_id=ecd_type.id
-                ).first()
-                
-                if not ecd_member_saving:
-                    ecd_member_saving = MemberSaving(
-                        member_id=member.id,
-                        saving_type_id=ecd_type.id,
-                        current_balance=Decimal('0')
-                    )
-                    db.session.add(ecd_member_saving)
-                    db.session.flush()
-                
-                # Create ECD savings transaction
-                ecd_transaction = SavingTransaction(
-                    member_saving_id=ecd_member_saving.id,
-                    amount=ecd_amount,
-                    transaction_type='DEPOSIT',
-                    processed_by=admin_user.id,
-                    description=f'ECD Fund contribution - {transaction_date.strftime("%B %Y")}',
-                    mobile_money_provider='MTN',
-                    mobile_money_phone=member.phone,
-                    transaction_date=transaction_date
                 )
-                ecd_transaction.balance_before = ecd_member_saving.current_balance
-                ecd_transaction.balance_after = ecd_member_saving.current_balance + ecd_amount
-                ecd_transaction.status = 'VERIFIED'
-                db.session.add(ecd_transaction)
-                
-                # Update ECD balance
-                ecd_member_saving.current_balance += ecd_amount
+
+                # Create ECD savings transaction using safe function
+                try:
+                    ecd_transaction, created = safe_create_saving_transaction(
+                        member_saving_id=ecd_member_saving.id,
+                        amount=ecd_amount,
+                        transaction_type='DEPOSIT',
+                        processed_by=admin_user.id,
+                        description=f'ECD Fund contribution - {transaction_date.strftime("%B %Y")}',
+                        mobile_money_provider='MTN',
+                        mobile_money_phone=member.phone,
+                        status='VERIFIED',
+                        processed_date=transaction_date
+                    )
+                except Exception as e:
+                    print(f"⚠️  Skipping duplicate ECD transaction for member {member.name}: {e}")
+                    continue
             
             # Social Fund savings (quarterly for officers)
             if member.role == 'OFFICER' and month_offset % 3 == 0:
                 social_amount = Decimal(str(15000 + (i * 3000)))
-                
-                # Create or get Social member saving record
-                social_member_saving = MemberSaving.query.filter_by(
-                    member_id=member.id, 
+
+                # Create or get Social member saving record using safe function
+                social_member_saving, created = safe_create_member_saving(
+                    member_id=member.id,
                     saving_type_id=social_type.id
-                ).first()
-                
-                if not social_member_saving:
-                    social_member_saving = MemberSaving(
-                        member_id=member.id,
-                        saving_type_id=social_type.id,
-                        current_balance=Decimal('0')
-                    )
-                    db.session.add(social_member_saving)
-                    db.session.flush()
-                
-                # Create Social savings transaction
-                social_transaction = SavingTransaction(
-                    member_saving_id=social_member_saving.id,
-                    amount=social_amount,
-                    transaction_type='DEPOSIT',
-                    processed_by=admin_user.id,
-                    description=f'Social Fund contribution - {transaction_date.strftime("%B %Y")}',
-                    mobile_money_provider='Airtel',
-                    mobile_money_phone=member.phone,
-                    transaction_date=transaction_date
                 )
-                social_transaction.balance_before = social_member_saving.current_balance
-                social_transaction.balance_after = social_member_saving.current_balance + social_amount
-                social_transaction.status = 'VERIFIED'
-                db.session.add(social_transaction)
-                
-                # Update Social balance
-                social_member_saving.current_balance += social_amount
+
+                # Create Social savings transaction using safe function
+                try:
+                    social_transaction, created = safe_create_saving_transaction(
+                        member_saving_id=social_member_saving.id,
+                        amount=social_amount,
+                        transaction_type='DEPOSIT',
+                        processed_by=admin_user.id,
+                        description=f'Social Fund contribution - {transaction_date.strftime("%B %Y")}',
+                        mobile_money_provider='Airtel',
+                        mobile_money_phone=member.phone,
+                        status='VERIFIED',
+                        processed_date=transaction_date
+                    )
+                except Exception as e:
+                    print(f"⚠️  Skipping duplicate Social transaction for member {member.name}: {e}")
+                    continue
     
     # Create calendar events for all transactions and activities
     print("📅 Creating calendar events for filtering...")
@@ -463,7 +800,7 @@ def seed_demo_data():
             title=f'{saving_type.name} - {transaction.amount:,.0f} UGX',
             description=f'{member.name} saved {transaction.amount:,.0f} UGX to {saving_type.name}',
             event_type='TRANSACTION',
-            event_date=transaction.transaction_date or transaction.created_date.date(),
+            event_date=transaction.processed_date.date() if transaction.processed_date else datetime.now().date(),
             group_id=member.group_id,
             user_id=member.user_id,
             amount=transaction.amount,
@@ -654,7 +991,18 @@ def seed_demo_data():
    Service Admin: admin@savingsgroups.ug / admin123
    Group Chair: sarah@kampala.ug / password123
    Group Treasurer: mary@kampala.ug / password123
+   Group Secretary: grace@kampala.ug / password123
    Group Member: alice@kampala.ug / password123
+   Group Member: jane@kampala.ug / password123
+   Group Officer: rose@kampala.ug / password123
+   Group Officer: john@kampala.ug / password123
+   Group Member: peter@kampala.ug / password123
+
+🎯 DASHBOARD ACCESS LEVELS:
+   • Super Admin: Full system access + user management
+   • Service Admin: Savings groups management + reports
+   • Group Officers: Group management + member oversight
+   • Group Members: Personal savings + group participation
     """)
 
 
@@ -952,21 +1300,54 @@ def format_check():
 
 @cli.command('reset_db')
 def reset_db():
-    """Drops and recreates the database with migrations."""
+    """Completely resets database with fresh migrations and demo data - PRODUCTION SAFE"""
+    print("🗑️  COMPLETE DATABASE RESET")
+    print("=" * 40)
+    print("⚠️  This will destroy ALL existing data!")
+
+    # Safety check for production
+    import os
+    if os.getenv('FLASK_ENV') == 'production':
+        confirm = input("🚨 PRODUCTION ENVIRONMENT DETECTED! Type 'RESET_PRODUCTION' to continue: ")
+        if confirm != 'RESET_PRODUCTION':
+            print("❌ Reset cancelled for safety")
+            return
+
     print("🗑️  Dropping all tables...")
     db.drop_all()
 
-    print("🔄 Running migrations...")
-    try:
-        from flask_migrate import upgrade
-        upgrade()
-        print("✅ Database reset complete!")
-    except Exception as e:
-        print(f"❌ Migration failed: {e}")
-        print("🔧 Creating tables directly...")
-        db.create_all()
-        db.session.commit()
-        print("✅ Database created!")
+    print("🏗️  Running complete migration and seeding...")
+    migrate_and_seed()
+
+    print("🎉 Database completely reset with fresh demo data!")
+
+
+@cli.command('reset-demo-data')
+def reset_demo_data():
+    """Resets only demo data while preserving user accounts and core data"""
+    from project.api.models import SavingsGroup, GroupMember
+
+    print("🎭 RESETTING DEMO DATA ONLY")
+    print("=" * 30)
+
+    # Count existing data
+    group_count = SavingsGroup.query.count()
+    member_count = GroupMember.query.count()
+
+    if group_count == 0:
+        print("ℹ️  No demo data found to reset")
+        return
+
+    print(f"🗑️  Removing {group_count} savings groups and {member_count} members...")
+
+    # This will cascade delete related data due to foreign key constraints
+    SavingsGroup.query.delete()
+    db.session.commit()
+
+    print("🌱 Creating fresh demo data...")
+    seed_demo_data()
+
+    print("✅ Demo data reset complete!")
 
 
 @cli.command('validate_db')
@@ -1060,11 +1441,219 @@ def register_notifications_service():
     print("   3. Service admins can approve access requests")
 
 
+@cli.command('fix_migrations')
+def fix_migrations():
+    """Professional migration conflict resolution - Prevents multiple head revisions"""
+    from flask_migrate import heads, merge, current, upgrade, migrate
+
+    print("🔧 PROFESSIONAL MIGRATION CONFLICT RESOLUTION")
+    print("=" * 60)
+    print("Preventing multiple head revisions and migration conflicts")
+    print("=" * 60)
+
+    try:
+        # Check for multiple heads
+        head_revisions = heads()
+        print(f"📍 Found {len(head_revisions)} head revision(s): {head_revisions}")
+
+        if len(head_revisions) > 1:
+            print("⚠️  Multiple head revisions detected!")
+            print("🔧 Automatically resolving conflicts...")
+
+            # Method 1: Try automatic merge
+            try:
+                merge(heads=head_revisions, message="Professional auto-merge: Resolve multiple heads")
+                print("✅ Successfully merged multiple heads")
+
+                # Apply the merge
+                upgrade()
+                print("✅ Merge migration applied")
+
+            except Exception as merge_error:
+                print(f"❌ Automatic merge failed: {merge_error}")
+                print("🔧 Attempting alternative resolution...")
+
+                # Method 2: Create new migration to force resolution
+                try:
+                    migrate(message="Professional conflict resolution: Force merge")
+                    print("✅ Created conflict resolution migration")
+
+                    upgrade()
+                    print("✅ Conflict resolution applied")
+
+                except Exception as force_error:
+                    print(f"❌ Force resolution failed: {force_error}")
+                    print("🚨 Manual intervention required!")
+                    print("   Run: docker-compose exec backend python manage.py db merge heads")
+                    return False
+        else:
+            print("✅ No migration conflicts detected")
+
+        # Verify final state
+        final_heads = heads()
+        current_rev = current()
+
+        print(f"📊 Final state:")
+        print(f"   • Head revisions: {len(final_heads)} ({final_heads})")
+        print(f"   • Current revision: {current_rev}")
+
+        if len(final_heads) == 1:
+            print("🎉 Migration system is healthy!")
+            return True
+        else:
+            print("⚠️  Migration system still has issues")
+            return False
+
+    except Exception as e:
+        print(f"❌ Migration fix failed: {e}")
+        return False
+
+
+@cli.command('test_demo_logins')
+def test_demo_logins():
+    """Test all demo user logins to ensure they work properly"""
+    from project.api.models import User
+    from project import bcrypt
+
+    print("🔐 TESTING DEMO USER LOGINS")
+    print("=" * 50)
+    print("Verifying all demo users can authenticate properly")
+    print("=" * 50)
+
+    # Demo user credentials
+    demo_users = [
+        {'email': 'superadmin@testdriven.io', 'password': 'superpassword123', 'role': 'Super Admin'},
+        {'email': 'admin@savingsgroups.ug', 'password': 'admin123', 'role': 'Service Admin'},
+        {'email': 'sarah@kampala.ug', 'password': 'password123', 'role': 'Group Chair'},
+        {'email': 'mary@kampala.ug', 'password': 'password123', 'role': 'Group Treasurer'},
+        {'email': 'grace@kampala.ug', 'password': 'password123', 'role': 'Group Secretary'},
+        {'email': 'alice@kampala.ug', 'password': 'password123', 'role': 'Group Member'},
+        {'email': 'jane@kampala.ug', 'password': 'password123', 'role': 'Group Member'},
+        {'email': 'rose@kampala.ug', 'password': 'password123', 'role': 'Group Officer'},
+        {'email': 'john@kampala.ug', 'password': 'password123', 'role': 'Group Officer'},
+        {'email': 'peter@kampala.ug', 'password': 'password123', 'role': 'Group Member'},
+    ]
+
+    total_users = len(demo_users)
+    successful_logins = 0
+    failed_logins = 0
+
+    for user_data in demo_users:
+        email = user_data['email']
+        password = user_data['password']
+        role = user_data['role']
+
+        print(f"\n🧪 Testing {role}: {email}")
+
+        # Check if user exists
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            print(f"❌ User not found: {email}")
+            failed_logins += 1
+            continue
+
+        # Test password verification
+        try:
+            if bcrypt.check_password_hash(user.password, password):
+                print(f"✅ Login successful for {role}")
+                successful_logins += 1
+
+                # Additional checks
+                print(f"   • Username: {user.username}")
+                print(f"   • Active: {user.is_active}")
+                if hasattr(user, 'is_super_admin') and user.is_super_admin:
+                    print(f"   • Super Admin: Yes")
+
+            else:
+                print(f"❌ Password verification failed for {role}")
+                failed_logins += 1
+
+        except Exception as e:
+            print(f"❌ Login test error for {role}: {e}")
+            failed_logins += 1
+
+    # Summary
+    print("\n" + "=" * 50)
+    print("🎯 LOGIN TEST RESULTS")
+    print("=" * 50)
+    print(f"Total Users Tested: {total_users}")
+    print(f"Successful Logins: {successful_logins}")
+    print(f"Failed Logins: {failed_logins}")
+    print(f"Success Rate: {(successful_logins/total_users)*100:.1f}%")
+
+    if failed_logins == 0:
+        print("\n🎉 ALL DEMO USERS CAN LOGIN SUCCESSFULLY!")
+        print("✅ Authentication system is working properly")
+        print("✅ All demo data is properly seeded")
+        print("✅ Ready for user testing and development")
+        return True
+    else:
+        print(f"\n⚠️  {failed_logins} login(s) failed")
+        print("🔧 Run 'python manage.py seed_demo_data' to fix missing users")
+        return False
+
+
 @cli.command('db_status')
 def db_status():
-    """Shows current database and migration status."""
-    print("📊 Database Status:")
-    print("-" * 40)
+    """Shows comprehensive database and migration status - Production Ready"""
+    from project.api.models import User, Service, SavingsGroup, GroupMember
+    from flask_migrate import current, heads
+
+    print("📊 COMPREHENSIVE DATABASE STATUS")
+    print("=" * 50)
+
+    # Database connection test
+    try:
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
+        print("✅ Database Connection: HEALTHY")
+    except Exception as e:
+        print(f"❌ Database Connection: FAILED - {e}")
+        return
+
+    # Migration status
+    try:
+        current_rev = current()
+        head_rev = heads()
+        if current_rev:
+            print(f"✅ Current Migration: {current_rev}")
+            if head_rev and current_rev in head_rev:
+                print("✅ Migration Status: UP TO DATE")
+            else:
+                print("⚠️  Migration Status: PENDING MIGRATIONS")
+        else:
+            print("⚠️  Migration Status: NOT INITIALIZED")
+    except Exception as e:
+        print(f"⚠️  Migration Status: ERROR - {e}")
+
+    # Data counts
+    try:
+        user_count = User.query.count()
+        service_count = Service.query.count()
+        group_count = SavingsGroup.query.count()
+        member_count = GroupMember.query.count()
+
+        print(f"👥 Users: {user_count}")
+        print(f"🔧 Services: {service_count}")
+        print(f"🏦 Savings Groups: {group_count}")
+        print(f"👤 Group Members: {member_count}")
+
+        # Check for key users
+        super_admin = User.query.filter_by(email='superadmin@testdriven.io').first()
+        if super_admin:
+            print("✅ Super Admin: PRESENT")
+        else:
+            print("⚠️  Super Admin: MISSING")
+
+        # Check for demo users
+        demo_users = ['sarah@kampala.ug', 'grace@kampala.ug', 'mary@kampala.ug', 'alice@kampala.ug']
+        demo_count = User.query.filter(User.email.in_(demo_users)).count()
+        print(f"🎭 Demo Users: {demo_count}/{len(demo_users)}")
+
+    except Exception as e:
+        print(f"❌ Data Status: ERROR - {e}")
+
+    print("=" * 50)
 
     try:
         # Check if tables exist

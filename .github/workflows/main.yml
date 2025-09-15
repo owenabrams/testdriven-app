@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Professional CI/CD Pipeline
 
 on:
   push:
@@ -10,65 +10,134 @@ env:
   COMMIT: ${{ github.sha }}
   SECRET_KEY: my_precious
   AWS_DEFAULT_REGION: us-east-1
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11']
+        node-version: ['18']
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdriven_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
-    
-    - name: Install backend dependencies
-      run: |
-        cd services/users
-        pip install -r requirements.txt
-    
-    - name: Run backend tests
-      run: |
-        cd services/users
-        python -m pytest
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
       with:
-        node-version: '18'
-    
-    - name: Install frontend dependencies
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: client/package-lock.json
+
+    - name: Install backend dependencies with caching
+      run: |
+        cd services/users
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install frontend dependencies with caching
       run: |
         cd client
-        npm install
-    
-    - name: Run frontend tests
+        npm ci --prefer-offline --no-audit
+
+    - name: Run backend linting
+      run: |
+        cd services/users
+        python -m flake8 project --max-line-length=100 --exclude=migrations
+
+    - name: Run backend tests with coverage
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdriven_test
+        FLASK_ENV: testing
+      run: |
+        cd services/users
+        python -m pytest --cov=project --cov-report=xml --cov-report=term-missing
+
+    - name: Run frontend linting
       run: |
         cd client
-        npm test -- --coverage --watchAll=false
+        npm run lint
+
+    - name: Run frontend tests with coverage
+      run: |
+        cd client
+        npm test -- --coverage --watchAll=false --ci
+
+    - name: Upload backend coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./services/users/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+    - name: Upload frontend coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./client/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
 
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/production'
-    
+
+    strategy:
+      matrix:
+        service: [backend, frontend]
+
     steps:
-    - uses: actions/checkout@v3
-    
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          network=host
+
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
-    
+
     - name: Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-    
+      uses: aws-actions/amazon-ecr-login@v2
+
     - name: Set environment variables
       run: |
         echo "REPO=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
+        echo "COMMIT_SHORT=${GITHUB_SHA:0:7}" >> $GITHUB_ENV
         if [[ $GITHUB_REF == 'refs/heads/production' ]]; then
           echo "DOCKER_ENV=prod" >> $GITHUB_ENV
           echo "TAG=production" >> $GITHUB_ENV
@@ -78,26 +147,36 @@ jobs:
           echo "TAG=staging" >> $GITHUB_ENV
           echo "REACT_APP_USERS_SERVICE_URL=${{ secrets.LOAD_BALANCER_STAGE_DNS_NAME }}" >> $GITHUB_ENV
         fi
-        echo "COMMIT_SHORT=${GITHUB_SHA:0:7}" >> $GITHUB_ENV
-    
-    - name: Build and push backend image
-      run: |
-        docker build ./services/users -t testdriven-backend:$COMMIT_SHORT -f ./services/users/Dockerfile-$DOCKER_ENV
-        docker tag testdriven-backend:$COMMIT_SHORT $REPO/testdriven-backend:$TAG
-        docker push $REPO/testdriven-backend:$TAG
-    
-    - name: Build and push frontend image
-      run: |
-        docker build ./client -t testdriven-frontend:$COMMIT_SHORT -f ./client/Dockerfile-$DOCKER_ENV \
-          --build-arg REACT_APP_USERS_SERVICE_URL=$REACT_APP_USERS_SERVICE_URL
-        docker tag testdriven-frontend:$COMMIT_SHORT $REPO/testdriven-frontend:$TAG
-        docker push $REPO/testdriven-frontend:$TAG
 
-    - name: Build and push database image
-      run: |
-        docker build ./services/users-db -t testdriven-backend-db:$COMMIT_SHORT
-        docker tag testdriven-backend-db:$COMMIT_SHORT $REPO/testdriven-backend-db:$TAG
-        docker push $REPO/testdriven-backend-db:$TAG
+    - name: Build and push optimized images with cache
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ matrix.service == 'backend' && './services/users' || './client' }}
+        file: ${{ matrix.service == 'backend' && './services/users/Dockerfile' || './client/Dockerfile' }}
+        push: true
+        tags: |
+          ${{ env.REPO }}/testdriven-${{ matrix.service }}:${{ env.TAG }}
+          ${{ env.REPO }}/testdriven-${{ matrix.service }}:${{ env.COMMIT_SHORT }}
+          ${{ env.REPO }}/testdriven-${{ matrix.service }}:latest
+        build-args: |
+          BUILDKIT_INLINE_CACHE=1
+          ${{ matrix.service == 'frontend' && format('REACT_APP_USERS_SERVICE_URL={0}', env.REACT_APP_USERS_SERVICE_URL) || '' }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+    - name: Run security scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REPO }}/testdriven-${{ matrix.service }}:${{ env.TAG }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
 
     - name: Deploy to ECS (staging)
       if: github.ref == 'refs/heads/staging'
@@ -124,5 +203,6 @@ jobs:
           exit 1
         fi
 
-        # Deploy ECS production services with automation
+        # Run smart migrations and deploy ECS production services
+        ./scripts/migrate-and-deploy.sh production
         ./scripts/deploy-ecs-production-automated.sh

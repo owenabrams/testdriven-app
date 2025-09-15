@@ -32,9 +32,22 @@ services:
       - APP_SETTINGS=project.config.ProductionConfig
       - DATABASE_URL=postgresql://webapp:72UWZ5Ez0tbtUqtB@postgres:5432/users_production
       - SECRET_KEY=c88ff1752e1b99f5e36c3dae0ee858799b1a3be7e7abfdef
+      - AUTO_SEED_DB=true
     depends_on:
       postgres:
         condition: service_healthy
+    command: >
+      sh -c "
+        echo '🔄 Waiting for database to be ready...' &&
+        sleep 8 &&
+        echo '📊 Checking production database status...' &&
+        python manage.py db-status &&
+        echo '🏗️ Running production-ready migration and seeding...' &&
+        python manage.py migrate-and-seed &&
+        echo '✅ Production database setup complete!' &&
+        echo '🚀 Starting production Flask application...' &&
+        gunicorn -b 0.0.0.0:5000 manage:app --workers=4 --timeout=120 --access-logfile=- --error-logfile=-
+      "
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/ping"]
       interval: 30s

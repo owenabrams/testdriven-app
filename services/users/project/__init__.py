@@ -34,6 +34,12 @@ def create_app(script_info=None):
     bcrypt.init_app(app)
     socketio.init_app(app, cors_allowed_origins="*")
 
+    # Initialize professional error handling and stability system
+    from project.error_handlers import register_error_handlers, setup_logging, create_stability_middleware
+    register_error_handlers(app)
+    setup_logging(app)
+    create_stability_middleware(app)
+
     # register blueprints
     from project.api.users import users_blueprint
     from project.api.auth import auth_blueprint
@@ -52,16 +58,7 @@ def create_app(script_info=None):
     # register socketio events for real-time features
     from project.api import socketio_events
 
-    # Health check endpoint for Docker
-    @app.route('/ping')
-    def ping():
-        return {
-            'status': 'healthy',
-            'message': 'Savings Groups Platform is running',
-            'version': '1.1.0-ecs-staging',
-            'deployment': 'ECS Zero-Downtime Deployment',
-            'features': ['automated-migrations', 'zero-downtime', 'health-checks']
-        }
+    # Health check endpoint is now handled by error_handlers.py
 
     # shell context for flask cli
     @app.shell_context_processor
