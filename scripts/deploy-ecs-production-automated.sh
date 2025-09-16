@@ -80,7 +80,14 @@ deploy_cluster() {
     service="testdriven-users-${ENVIRONMENT}-service"
     template="ecs_users_prod_taskdefinition.json"
     task_template=$(cat "ecs/$template")
-    task_def=$(printf "$task_template" $AWS_ACCOUNT_ID $AWS_RDS_URI $PRODUCTION_SECRET_KEY $AWS_ACCOUNT_ID $AWS_ACCOUNT_ID)
+    # Parse RDS URI to extract password and endpoint
+    # Expected format: postgresql://webapp:PASSWORD@ENDPOINT:5432/users_production
+    RDS_PASSWORD=$(echo "$AWS_RDS_URI" | sed -n 's/.*:\/\/webapp:\([^@]*\)@.*/\1/p')
+    RDS_ENDPOINT=$(echo "$AWS_RDS_URI" | sed -n 's/.*@\([^:]*\):.*/\1/p')
+
+    echo "🔍 Debug: RDS_PASSWORD=${RDS_PASSWORD:0:5}... RDS_ENDPOINT=$RDS_ENDPOINT"
+
+    task_def=$(printf "$task_template" $AWS_ACCOUNT_ID $RDS_PASSWORD $RDS_ENDPOINT $PRODUCTION_SECRET_KEY $AWS_ACCOUNT_ID $AWS_ACCOUNT_ID)
     echo "📋 Task definition prepared with RDS connection"
     register_definition
     update_service
