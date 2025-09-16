@@ -21,19 +21,7 @@ jobs:
         python-version: ['3.11']
         node-version: ['18']
 
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: testdriven_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
+    # Using SQLite for tests - no PostgreSQL service needed
 
     steps:
     - name: Checkout code
@@ -73,7 +61,7 @@ jobs:
 
     - name: Run backend tests with coverage
       env:
-        DATABASE_TEST_URL: postgresql://postgres:postgres@localhost:5432/testdriven_test
+        DATABASE_TEST_URL: sqlite:///test.db
         FLASK_ENV: testing
       run: |
         cd services/users
