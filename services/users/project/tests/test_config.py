@@ -13,7 +13,7 @@ class TestDevelopmentConfig(TestCase):
     def create_app(self):
         os.environ['APP_SETTINGS'] = 'project.config.DevelopmentConfig'
         os.environ['DATABASE_URL'] = 'sqlite:///dev.db'
-        os.environ['SECRET_KEY'] = 'test-secret-key'
+        os.environ['SECRET_KEY'] = 'my_precious'
         app, socketio = create_app()
         return app
 
@@ -33,6 +33,7 @@ class TestDevelopmentConfig(TestCase):
 class TestTestingConfig(TestCase):
     def create_app(self):
         os.environ['APP_SETTINGS'] = 'project.config.TestingConfig'
+        os.environ['SECRET_KEY'] = 'my_precious'
         app, socketio = create_app()
         return app
 
@@ -54,7 +55,7 @@ class TestProductionConfig(TestCase):
     def create_app(self):
         os.environ['APP_SETTINGS'] = 'project.config.ProductionConfig'
         os.environ['DATABASE_URL'] = 'sqlite:///prod.db'
-        os.environ['SECRET_KEY'] = 'test-secret-key'
+        os.environ['SECRET_KEY'] = 'my_precious'
         app, socketio = create_app()
         return app
 
