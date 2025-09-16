@@ -9,6 +9,8 @@ on:
 env:
   COMMIT: ${{ github.sha }}
   SECRET_KEY: my_precious
+  DATABASE_URL: sqlite:///test.db
+  DATABASE_TEST_URL: sqlite:///test.db
   AWS_DEFAULT_REGION: us-east-1
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
