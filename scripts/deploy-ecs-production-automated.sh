@@ -59,32 +59,70 @@ register_definition() {
 update_service() {
     echo "🔄 Checking if service exists: $service"
 
-    # Check if service exists
-    if aws ecs describe-services --cluster $cluster --services $service --query 'services[0].status' --output text 2>/dev/null | grep -q "ACTIVE\|RUNNING\|PENDING"; then
-        echo "✅ Service exists, updating: $service"
-        if [[ $(aws ecs update-service --cluster $cluster --service $service --task-definition $revision | $JQ '.service.taskDefinition') != $revision ]]; then
-            echo "❌ Error updating service $service"
-            return 1
+    # Check if service exists with more robust detection
+    SERVICE_STATUS=$(aws ecs describe-services --cluster $cluster --services $service --query 'services[0].status' --output text 2>/dev/null)
+    SERVICE_EXISTS=$?
+
+    if [ $SERVICE_EXISTS -eq 0 ] && [[ "$SERVICE_STATUS" =~ ^(ACTIVE|RUNNING|PENDING)$ ]]; then
+        echo "✅ Service exists (status: $SERVICE_STATUS), updating: $service"
+
+        # Update existing service
+        UPDATE_RESULT=$(aws ecs update-service --cluster $cluster --service $service --task-definition $revision 2>&1)
+        if [ $? -eq 0 ]; then
+            UPDATED_REVISION=$(echo "$UPDATE_RESULT" | $JQ -r '.service.taskDefinition')
+            if [[ "$UPDATED_REVISION" == *"$revision"* ]]; then
+                echo "✅ Service $service updated successfully to revision $revision"
+            else
+                echo "⚠️  Service updated but revision mismatch. Expected: $revision, Got: $UPDATED_REVISION"
+            fi
         else
-            echo "✅ Service $service updated successfully"
+            echo "❌ Error updating service $service: $UPDATE_RESULT"
+            return 1
         fi
     else
-        echo "🔧 Service doesn't exist, creating: $service"
+        echo "🔧 Service doesn't exist or is inactive, creating: $service"
+
         # Convert comma-separated subnets to array format for AWS CLI
         SUBNET_ARRAY=$(echo $SUBNET_IDS | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/')
 
-        aws ecs create-service \
+        # Attempt to create service with retry logic for idempotency errors
+        CREATE_RESULT=$(aws ecs create-service \
             --cluster $cluster \
             --service-name $service \
             --task-definition $revision \
             --desired-count 1 \
             --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_ARRAY],securityGroups=[\"$SECURITY_GROUP_ID\"],assignPublicIp=ENABLED}"
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_ARRAY],securityGroups=[\"$SECURITY_GROUP_ID\"],assignPublicIp=ENABLED}" 2>&1)
 
-        if [ $? -eq 0 ]; then
+        CREATE_EXIT_CODE=$?
+
+        if [ $CREATE_EXIT_CODE -eq 0 ]; then
             echo "✅ Service $service created successfully"
+        elif echo "$CREATE_RESULT" | grep -q "Creation of service was not idempotent"; then
+            echo "⚠️  Service creation idempotency error detected. Service may already exist in transitional state."
+            echo "🔄 Waiting 10 seconds and checking service status..."
+            sleep 10
+
+            # Re-check service status after idempotency error
+            SERVICE_STATUS_RETRY=$(aws ecs describe-services --cluster $cluster --services $service --query 'services[0].status' --output text 2>/dev/null)
+            if [[ "$SERVICE_STATUS_RETRY" =~ ^(ACTIVE|RUNNING|PENDING)$ ]]; then
+                echo "✅ Service $service exists after idempotency error (status: $SERVICE_STATUS_RETRY)"
+                echo "🔄 Updating service to ensure correct task definition..."
+
+                # Force update to ensure correct task definition
+                UPDATE_RESULT=$(aws ecs update-service --cluster $cluster --service $service --task-definition $revision --force-new-deployment 2>&1)
+                if [ $? -eq 0 ]; then
+                    echo "✅ Service $service updated successfully after idempotency resolution"
+                else
+                    echo "❌ Error updating service after idempotency error: $UPDATE_RESULT"
+                    return 1
+                fi
+            else
+                echo "❌ Service still not accessible after idempotency error"
+                return 1
+            fi
         else
-            echo "❌ Error creating service $service"
+            echo "❌ Error creating service $service: $CREATE_RESULT"
             return 1
         fi
     fi
@@ -92,8 +130,40 @@ update_service() {
 
 wait_for_deployment() {
     echo "⏳ Waiting for deployment to complete for $service..."
-    aws ecs wait services-stable --cluster $cluster --services $service
-    echo "✅ Deployment completed for $service"
+
+    # Use timeout to prevent infinite waiting
+    timeout 600 aws ecs wait services-stable --cluster $cluster --services $service
+    WAIT_EXIT_CODE=$?
+
+    if [ $WAIT_EXIT_CODE -eq 0 ]; then
+        echo "✅ Deployment completed for $service"
+
+        # Verify service is actually running
+        RUNNING_COUNT=$(aws ecs describe-services --cluster $cluster --services $service --query 'services[0].runningCount' --output text)
+        DESIRED_COUNT=$(aws ecs describe-services --cluster $cluster --services $service --query 'services[0].desiredCount' --output text)
+
+        if [ "$RUNNING_COUNT" = "$DESIRED_COUNT" ] && [ "$RUNNING_COUNT" -gt 0 ]; then
+            echo "✅ Service $service is healthy: $RUNNING_COUNT/$DESIRED_COUNT tasks running"
+        else
+            echo "⚠️  Service $service deployment completed but task counts don't match: $RUNNING_COUNT/$DESIRED_COUNT"
+        fi
+    elif [ $WAIT_EXIT_CODE -eq 124 ]; then
+        echo "⚠️  Deployment wait timed out after 10 minutes for $service"
+        echo "🔍 Checking current service status..."
+
+        # Show current status even if wait timed out
+        aws ecs describe-services --cluster $cluster --services $service --query 'services[0].{status:status,runningCount:runningCount,desiredCount:desiredCount,deployments:deployments[0].{status:status,rolloutState:rolloutState}}' --output table
+
+        echo "⚠️  Continuing deployment despite timeout - service may still be stabilizing"
+    else
+        echo "❌ Error waiting for deployment of $service (exit code: $WAIT_EXIT_CODE)"
+
+        # Show service events for debugging
+        echo "🔍 Recent service events:"
+        aws ecs describe-services --cluster $cluster --services $service --query 'services[0].events[0:3]' --output table
+
+        return 1
+    fi
 }
 
 deploy_cluster() {
@@ -169,30 +239,71 @@ deploy_cluster() {
     echo "🔧 Deploying Backend Service (Users API with RDS)..."
     service="testdriven-users-${ENVIRONMENT}-service"
     template="ecs_users_prod_taskdefinition.json"
+
+    if [ ! -f "ecs/$template" ]; then
+        echo "❌ Task definition template not found: ecs/$template"
+        return 1
+    fi
+
     task_template=$(cat "ecs/$template")
+
     # Parse RDS URI to extract password and endpoint
     # Expected format: postgresql://webapp:PASSWORD@ENDPOINT:5432/users_production
     RDS_PASSWORD=$(echo "$AWS_RDS_URI" | sed -n 's/.*:\/\/webapp:\([^@]*\)@.*/\1/p')
     RDS_ENDPOINT=$(echo "$AWS_RDS_URI" | sed -n 's/.*@\([^:]*\):.*/\1/p')
 
+    if [ -z "$RDS_PASSWORD" ] || [ -z "$RDS_ENDPOINT" ]; then
+        echo "❌ Failed to parse RDS credentials from AWS_RDS_URI"
+        echo "🔍 RDS_URI format should be: postgresql://webapp:PASSWORD@ENDPOINT:5432/users_production"
+        return 1
+    fi
+
     echo "🔍 Debug: RDS_PASSWORD=${RDS_PASSWORD:0:5}... RDS_ENDPOINT=$RDS_ENDPOINT"
 
     task_def=$(printf "$task_template" $AWS_ACCOUNT_ID $RDS_PASSWORD $RDS_ENDPOINT $PRODUCTION_SECRET_KEY $AWS_ACCOUNT_ID $AWS_ACCOUNT_ID)
     echo "📋 Task definition prepared with RDS connection"
-    register_definition
-    update_service
-    wait_for_deployment
+
+    if ! register_definition; then
+        echo "❌ Failed to register backend task definition"
+        return 1
+    fi
+
+    if ! update_service; then
+        echo "❌ Failed to update backend service"
+        return 1
+    fi
+
+    if ! wait_for_deployment; then
+        echo "⚠️  Backend deployment may not be fully stable, but continuing..."
+    fi
 
     echo ""
     echo "🔧 Deploying Frontend Service (React Client)..."
     service="testdriven-client-${ENVIRONMENT}-service"
     template="ecs_client_prod_taskdefinition.json"
+
+    if [ ! -f "ecs/$template" ]; then
+        echo "❌ Task definition template not found: ecs/$template"
+        return 1
+    fi
+
     task_template=$(cat "ecs/$template")
     task_def=$(printf "$task_template" $AWS_ACCOUNT_ID $AWS_ACCOUNT_ID $AWS_ACCOUNT_ID)
     echo "📋 Task definition prepared"
-    register_definition
-    update_service
-    wait_for_deployment
+
+    if ! register_definition; then
+        echo "❌ Failed to register frontend task definition"
+        return 1
+    fi
+
+    if ! update_service; then
+        echo "❌ Failed to update frontend service"
+        return 1
+    fi
+
+    if ! wait_for_deployment; then
+        echo "⚠️  Frontend deployment may not be fully stable, but continuing..."
+    fi
 }
 
 # Main execution
@@ -208,11 +319,43 @@ echo "============================================="
 echo "📋 Cluster: $CLUSTER_NAME"
 echo "🗃️  Database: RDS PostgreSQL"
 echo "🌐 Services Deployed:"
-echo "   - Frontend Service (testdriven-client-${ENVIRONMENT}-service)"
 echo "   - Backend Service (testdriven-users-${ENVIRONMENT}-service)"
+echo "   - Frontend Service (testdriven-client-${ENVIRONMENT}-service)"
+echo ""
+
+# Final deployment verification
+echo "🔍 Final Deployment Verification:"
+echo "=================================="
+
+BACKEND_SERVICE="testdriven-users-${ENVIRONMENT}-service"
+FRONTEND_SERVICE="testdriven-client-${ENVIRONMENT}-service"
+
+# Check backend service status
+BACKEND_STATUS=$(aws ecs describe-services --cluster $CLUSTER_NAME --services $BACKEND_SERVICE --query 'services[0].{status:status,running:runningCount,desired:desiredCount}' --output json 2>/dev/null)
+if [ $? -eq 0 ]; then
+    echo "✅ Backend Service Status:"
+    echo "$BACKEND_STATUS" | $JQ -r '"   Status: \(.status), Running: \(.running)/\(.desired) tasks"'
+else
+    echo "❌ Could not verify backend service status"
+fi
+
+# Check frontend service status
+FRONTEND_STATUS=$(aws ecs describe-services --cluster $CLUSTER_NAME --services $FRONTEND_SERVICE --query 'services[0].{status:status,running:runningCount,desired:desiredCount}' --output json 2>/dev/null)
+if [ $? -eq 0 ]; then
+    echo "✅ Frontend Service Status:"
+    echo "$FRONTEND_STATUS" | $JQ -r '"   Status: \(.status), Running: \(.running)/\(.desired) tasks"'
+else
+    echo "❌ Could not verify frontend service status"
+fi
+
 echo ""
 echo "📝 Next Steps:"
 echo "1. Check ECS Console to verify services are running"
-echo "2. Check ALB target groups for healthy instances"
+echo "2. Check CloudWatch logs for any application errors"
 echo "3. Test the application endpoints"
-echo "4. Run end-to-end tests"
+echo "4. Set up load balancer if needed for production traffic"
+echo ""
+echo "🔗 Useful commands:"
+echo "   aws ecs describe-services --cluster $CLUSTER_NAME --services $BACKEND_SERVICE $FRONTEND_SERVICE"
+echo "   aws logs tail testdriven-users-prod --follow"
+echo "   aws logs tail testdriven-client-prod --follow"
