@@ -278,6 +278,20 @@ deploy_cluster() {
     echo "   📍 Endpoint: $RDS_ENDPOINT"
     echo "   🔐 Password: ${RDS_PASSWORD:0:3}***"
 
+    # Run database migrations
+    echo ""
+    echo "🔄 Running database migrations..."
+    if [ -f "scripts/run-migrations.sh" ]; then
+        if ./scripts/run-migrations.sh --db-uri "$AWS_RDS_URI"; then
+            echo "✅ Database migrations completed"
+        else
+            echo "⚠️ Database migrations failed, but continuing deployment"
+            echo "   You may need to run migrations manually"
+        fi
+    else
+        echo "⚠️ Migration script not found, skipping migrations"
+    fi
+
     task_def=$(printf "$task_template" $AWS_ACCOUNT_ID $RDS_PASSWORD $RDS_ENDPOINT $PRODUCTION_SECRET_KEY $AWS_ACCOUNT_ID $AWS_ACCOUNT_ID)
     echo "📋 Task definition prepared with RDS connection"
 
