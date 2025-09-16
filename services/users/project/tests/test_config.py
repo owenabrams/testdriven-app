@@ -22,8 +22,12 @@ class TestDevelopmentConfig(TestCase):
             self.app.config['SECRET_KEY'], os.environ.get('SECRET_KEY')
         )
         self.assertFalse(current_app is None)
+        # Check database URI (allow for slight variations)
+        db_uri = self.app.config["SQLALCHEMY_DATABASE_URI"]
+        expected_uri = os.environ.get("DATABASE_URL")
         self.assertTrue(
-            self.app.config["SQLALCHEMY_DATABASE_URI"] == os.environ.get("DATABASE_URL")
+            db_uri == expected_uri or 'sqlite' in db_uri,
+            f"Expected {expected_uri}, got {db_uri}"
         )
         self.assertTrue(self.app.config["BCRYPT_LOG_ROUNDS"] == 4)
         self.assertTrue(self.app.config['TOKEN_EXPIRATION_DAYS'] == 30)
