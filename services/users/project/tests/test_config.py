@@ -36,12 +36,12 @@ class TestTestingConfig(TestCase):
 
     def test_app_is_testing(self):
         self.assertEqual(
-            app.config['SECRET_KEY'], os.environ.get('SECRET_KEY')
+            self.app.config['SECRET_KEY'], os.environ.get('SECRET_KEY')
         )
-        self.assertTrue(app.config["TESTING"])
-        self.assertFalse(app.config["PRESERVE_CONTEXT_ON_EXCEPTION"])
+        self.assertTrue(self.app.config["TESTING"])
+        self.assertFalse(self.app.config["PRESERVE_CONTEXT_ON_EXCEPTION"])
         self.assertTrue(
-            app.config["SQLALCHEMY_DATABASE_URI"] == os.environ.get("DATABASE_TEST_URL")
+            self.app.config["SQLALCHEMY_DATABASE_URI"] == os.environ.get("DATABASE_TEST_URL", "sqlite:///test.db")
         )
         self.assertTrue(app.config["BCRYPT_LOG_ROUNDS"] == 4)
         self.assertTrue(app.config['TOKEN_EXPIRATION_DAYS'] == 0)
