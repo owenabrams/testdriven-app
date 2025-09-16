@@ -29,6 +29,13 @@ if [ -z "$AWS_RDS_URI" ] || [ -z "$PRODUCTION_SECRET_KEY" ]; then
     echo "❌ Missing required environment variables:"
     echo "   - AWS_RDS_URI: ${AWS_RDS_URI:+SET}"
     echo "   - PRODUCTION_SECRET_KEY: ${PRODUCTION_SECRET_KEY:+SET}"
+    echo ""
+    echo "🔧 To fix AWS_RDS_URI:"
+    echo "1. Set up PostgreSQL database (see docs/DATABASE_SETUP.md)"
+    echo "2. Add AWS_RDS_URI secret to GitHub Actions"
+    echo "3. Format: postgresql://webapp:password@endpoint:port/database"
+    echo ""
+    echo "📋 Example: postgresql://webapp:mypassword@mydb.amazonaws.com:5432/users_production"
     exit 1
 fi
 
@@ -255,10 +262,21 @@ deploy_cluster() {
     if [ -z "$RDS_PASSWORD" ] || [ -z "$RDS_ENDPOINT" ]; then
         echo "❌ Failed to parse RDS credentials from AWS_RDS_URI"
         echo "🔍 RDS_URI format should be: postgresql://webapp:PASSWORD@ENDPOINT:5432/users_production"
+        echo "🔍 Current value: ${AWS_RDS_URI:0:50}..."
         return 1
     fi
 
-    echo "🔍 Debug: RDS_PASSWORD=${RDS_PASSWORD:0:5}... RDS_ENDPOINT=$RDS_ENDPOINT"
+    # Check if endpoint looks like localhost (common mistake)
+    if [[ "$RDS_ENDPOINT" == "localhost" || "$RDS_ENDPOINT" == "127.0.0.1" ]]; then
+        echo "❌ RDS endpoint is set to localhost - this won't work in production!"
+        echo "📋 Please set up a real PostgreSQL database (see docs/DATABASE_SETUP.md)"
+        echo "🔗 Quick setup: https://github.com/owenabrams/testdriven-app/blob/production/docs/DATABASE_SETUP.md"
+        return 1
+    fi
+
+    echo "✅ RDS credentials parsed successfully"
+    echo "   📍 Endpoint: $RDS_ENDPOINT"
+    echo "   🔐 Password: ${RDS_PASSWORD:0:3}***"
 
     task_def=$(printf "$task_template" $AWS_ACCOUNT_ID $RDS_PASSWORD $RDS_ENDPOINT $PRODUCTION_SECRET_KEY $AWS_ACCOUNT_ID $AWS_ACCOUNT_ID)
     echo "📋 Task definition prepared with RDS connection"
