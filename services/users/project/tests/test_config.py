@@ -12,6 +12,8 @@ from project import create_app
 class TestDevelopmentConfig(TestCase):
     def create_app(self):
         os.environ['APP_SETTINGS'] = 'project.config.DevelopmentConfig'
+        os.environ['DATABASE_URL'] = 'sqlite:///dev.db'
+        os.environ['SECRET_KEY'] = 'test-secret-key'
         app, socketio = create_app()
         return app
 
@@ -51,6 +53,8 @@ class TestTestingConfig(TestCase):
 class TestProductionConfig(TestCase):
     def create_app(self):
         os.environ['APP_SETTINGS'] = 'project.config.ProductionConfig'
+        os.environ['DATABASE_URL'] = 'sqlite:///prod.db'
+        os.environ['SECRET_KEY'] = 'test-secret-key'
         app, socketio = create_app()
         return app
 
