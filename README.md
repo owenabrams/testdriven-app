@@ -1,6 +1,6 @@
 # Microservices with Docker, Flask, and React
 
-<!-- VERIFICATION TRIGGER: Final test run - All fixes applied -->
+<!-- VERIFICATION TRIGGER: Testing improved deployment script with enhanced error handling -->
 
 [![Build Status](https://github.com/owenabrams/testdriven-app/workflows/Continuous%20Integration%20and%20Delivery/badge.svg?branch=main)](https://github.com/owenabrams/testdriven-app/actions)
 
