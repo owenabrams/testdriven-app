@@ -73,7 +73,7 @@ jobs:
 
     - name: Run backend tests with coverage
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdriven_test
+        DATABASE_TEST_URL: postgresql://postgres:postgres@localhost:5432/testdriven_test
         FLASK_ENV: testing
       run: |
         cd services/users
