@@ -152,6 +152,20 @@ deploy_cluster() {
     fi
 
     echo ""
+    echo "🔧 Creating CloudWatch log groups..."
+
+    # Create log groups for both services
+    for log_group in "testdriven-users-prod" "testdriven-client-prod"; do
+        if aws logs describe-log-groups --log-group-name-prefix "$log_group" --query 'logGroups[?logGroupName==`'$log_group'`]' --output text | grep -q "$log_group"; then
+            echo "✅ Log group already exists: $log_group"
+        else
+            echo "🔧 Creating log group: $log_group"
+            aws logs create-log-group --log-group-name "$log_group"
+            echo "✅ Log group created: $log_group"
+        fi
+    done
+
+    echo ""
     echo "🔧 Deploying Backend Service (Users API with RDS)..."
     service="testdriven-users-${ENVIRONMENT}-service"
     template="ecs_users_prod_taskdefinition.json"
