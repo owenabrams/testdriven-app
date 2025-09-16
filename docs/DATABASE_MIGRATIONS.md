@@ -14,14 +14,35 @@ Same SQL → Same SQL → Same SQL
 
 | Option | Cost | Setup Time | Migration Support | Best For |
 |--------|------|------------|-------------------|----------|
-| **AWS RDS Free** | 🆓 12 months | 10 min | ✅ Full PostgreSQL | **Recommended** |
+| **Aurora Serverless v2** | 🆓 12 months | 10 min | ✅ Full PostgreSQL | **🌟 RECOMMENDED** |
+| **AWS RDS Free** | 🆓 12 months | 10 min | ✅ Full PostgreSQL | Traditional choice |
 | **Supabase FREE** | 🆓 Forever | 2 min | ✅ Full PostgreSQL | Quick testing |
 | **ElephantSQL** | 🆓 Forever | 2 min | ✅ Full PostgreSQL | Minimal needs |
 | **Local + ngrok** | 🆓 | 5 min | ✅ Full PostgreSQL | Development only |
 
-## 🆓 **AWS RDS Free Tier (RECOMMENDED)**
+## 🌟 **Aurora Serverless v2 (RECOMMENDED)**
 
-### **Why AWS RDS Free Tier is Perfect:**
+### **Why Aurora Serverless v2 is Perfect:**
+- ✅ **FREE for 12 months** (750 hours/month = 24/7)
+- ✅ **Auto-scaling**: Scales to 0.5 ACU when idle (~$0.06/hour)
+- ✅ **PostgreSQL compatible** (same migrations work)
+- ✅ **Perfect for testing**: Only pay when actively using
+- ✅ **Production-ready**: Scales up instantly under load
+- ✅ **Built-in high availability** and automated backups
+- ✅ **Faster than traditional RDS** for variable workloads
+
+### **Quick Setup:**
+```bash
+# Create FREE Aurora Serverless v2 PostgreSQL
+./scripts/setup-aurora-serverless.sh
+
+# Add connection string to GitHub Actions
+# AWS_RDS_URI = postgresql://webapp:password@endpoint:5432/users_production
+```
+
+## 🆓 **AWS RDS Free Tier (Alternative)**
+
+### **Why AWS RDS Free Tier is Good:**
 - ✅ **FREE for 12 months** (750 hours/month = 24/7)
 - ✅ **Real production PostgreSQL** (db.t3.micro)
 - ✅ **20GB storage** (plenty for testing)
