@@ -76,6 +76,18 @@ deploy_cluster() {
     cluster="testdriven-${ENVIRONMENT}-cluster"
 
     echo ""
+    echo "🏗️  Creating ECS cluster: $cluster"
+
+    # Check if cluster exists
+    if aws ecs describe-clusters --clusters $cluster --query 'clusters[0].status' --output text 2>/dev/null | grep -q "ACTIVE"; then
+        echo "✅ Cluster $cluster already exists and is active"
+    else
+        echo "🔧 Creating new ECS cluster: $cluster"
+        aws ecs create-cluster --cluster-name $cluster
+        echo "✅ Cluster $cluster created successfully"
+    fi
+
+    echo ""
     echo "🔧 Deploying Backend Service (Users API with RDS)..."
     service="testdriven-users-${ENVIRONMENT}-service"
     template="ecs_users_prod_taskdefinition.json"
