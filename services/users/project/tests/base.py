@@ -8,14 +8,13 @@ from project import create_app, db
 # Force SQLite for tests to avoid PostgreSQL constraint issues
 os.environ['DATABASE_TEST_URL'] = 'sqlite:///test.db'
 os.environ['FLASK_ENV'] = 'testing'
+# Set the APP_SETTINGS to use TestingConfig
+os.environ['APP_SETTINGS'] = 'project.config.TestingConfig'
 
 
 class BaseTestCase(TestCase):
     def create_app(self):
         app, socketio = create_app()
-        app.config.from_object("project.config.TestingConfig")
-        # Override database URL to use SQLite for tests
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
         return app
 
     def setUp(self):

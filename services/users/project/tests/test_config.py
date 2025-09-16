@@ -11,8 +11,8 @@ from project import create_app
 
 class TestDevelopmentConfig(TestCase):
     def create_app(self):
+        os.environ['APP_SETTINGS'] = 'project.config.DevelopmentConfig'
         app, socketio = create_app()
-        app.config.from_object("project.config.DevelopmentConfig")
         return app
 
     def test_app_is_development(self):
@@ -30,8 +30,8 @@ class TestDevelopmentConfig(TestCase):
 
 class TestTestingConfig(TestCase):
     def create_app(self):
+        os.environ['APP_SETTINGS'] = 'project.config.TestingConfig'
         app, socketio = create_app()
-        app.config.from_object("project.config.TestingConfig")
         return app
 
     def test_app_is_testing(self):
@@ -50,8 +50,8 @@ class TestTestingConfig(TestCase):
 
 class TestProductionConfig(TestCase):
     def create_app(self):
+        os.environ['APP_SETTINGS'] = 'project.config.ProductionConfig'
         app, socketio = create_app()
-        app.config.from_object("project.config.ProductionConfig")
         return app
 
     def test_app_is_production(self):
