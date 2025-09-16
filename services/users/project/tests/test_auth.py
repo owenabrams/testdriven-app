@@ -154,9 +154,9 @@ class TestAuthBlueprint(BaseTestCase):
             )
             data = json.loads(response.data.decode())
             self.assertTrue(data['status'] == 'fail')
-            self.assertTrue(data['message'] == 'User does not exist.')
+            self.assertTrue(data['message'] == 'Invalid email or password.')
             self.assertTrue(response.content_type == 'application/json')
-            self.assertEqual(response.status_code, 404)
+            self.assertEqual(response.status_code, 401)
 
     def test_valid_logout(self):
         add_user('test', 'test@test.com', 'test')

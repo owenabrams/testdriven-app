@@ -53,9 +53,10 @@ class TestTestingConfig(TestCase):
 
 class TestProductionConfig(TestCase):
     def create_app(self):
-        os.environ['APP_SETTINGS'] = 'project.config.ProductionConfig'
+        # Set environment variables before creating app
         os.environ['DATABASE_URL'] = 'sqlite:///prod.db'
         os.environ['SECRET_KEY'] = 'my_precious'
+        os.environ['APP_SETTINGS'] = 'project.config.ProductionConfig'
         app, socketio = create_app()
         return app
 
