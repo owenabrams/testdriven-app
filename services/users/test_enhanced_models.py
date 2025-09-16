@@ -11,6 +11,12 @@ from decimal import Decimal
 # Add the project directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'project'))
 
+# Set up proper test environment
+os.environ['APP_SETTINGS'] = 'project.config.TestingConfig'
+os.environ['DATABASE_TEST_URL'] = 'sqlite:///test.db'
+os.environ['SECRET_KEY'] = 'my_precious'
+os.environ['FLASK_ENV'] = 'testing'
+
 from project import create_app, db
 from project.api.models import *
 from project.api.cashbook_service import CashbookService
