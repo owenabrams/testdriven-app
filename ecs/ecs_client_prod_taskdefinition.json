@@ -4,7 +4,7 @@
       "name": "client",
       "image": "%s.dkr.ecr.us-east-1.amazonaws.com/testdriven-frontend:production",
       "essential": true,
-      "memory": 300,
+      "memory": 128,
       "portMappings": [
         {
           "protocol": "tcp",
@@ -25,7 +25,7 @@
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
-  "memory": "512",
+  "memory": "256",
   "executionRoleArn": "arn:aws:iam::%s:role/testdriven-production-ecs-execution-role",
   "taskRoleArn": "arn:aws:iam::%s:role/testdriven-production-ecs-task-role"
 }
