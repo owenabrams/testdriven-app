@@ -1,6 +1,6 @@
 # Microservices with Docker, Flask, and React
 
-<!-- VERIFICATION TRIGGER: Testing with FREE Supabase PostgreSQL database -->
+<!-- AURORA INTEGRATION: Professional PostgreSQL with Aurora Serverless v2 -->
 
 [![Build Status](https://github.com/owenabrams/testdriven-app/workflows/Continuous%20Integration%20and%20Delivery/badge.svg?branch=main)](https://github.com/owenabrams/testdriven-app/actions)
 
