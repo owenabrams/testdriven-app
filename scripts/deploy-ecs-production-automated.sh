@@ -260,18 +260,44 @@ deploy_cluster() {
     RDS_ENDPOINT=$(echo "$AWS_RDS_URI" | sed -n 's/.*@\([^:]*\):.*/\1/p')
 
     if [ -z "$RDS_PASSWORD" ] || [ -z "$RDS_ENDPOINT" ]; then
-        echo "❌ Failed to parse RDS credentials from AWS_RDS_URI"
+        echo "⚠️  Failed to parse RDS credentials from AWS_RDS_URI"
         echo "🔍 RDS_URI format should be: postgresql://webapp:PASSWORD@ENDPOINT:5432/users_production"
         echo "🔍 Current value: ${AWS_RDS_URI:0:50}..."
-        return 1
+
+        # Try to use Aurora-specific environment variables as fallback
+        if [ -n "$AURORA_DB_PASSWORD" ]; then
+            echo "🔧 Using AURORA_DB_PASSWORD as fallback"
+            RDS_PASSWORD="$AURORA_DB_PASSWORD"
+        fi
+
+        if [ -z "$RDS_PASSWORD" ]; then
+            echo "❌ No database password available"
+            return 1
+        fi
     fi
 
-    # Check if endpoint looks like localhost (common mistake)
+    # Check if endpoint looks like localhost and auto-fix with Aurora endpoint
     if [[ "$RDS_ENDPOINT" == "localhost" || "$RDS_ENDPOINT" == "127.0.0.1" ]]; then
-        echo "❌ RDS endpoint is set to localhost - this won't work in production!"
-        echo "📋 Please set up a real PostgreSQL database (see docs/DATABASE_SETUP.md)"
-        echo "🔗 Quick setup: https://github.com/owenabrams/testdriven-app/blob/production/docs/DATABASE_SETUP.md"
-        return 1
+        echo "⚠️  RDS endpoint is set to localhost - auto-detecting Aurora cluster..."
+
+        # Try to find Aurora cluster endpoint
+        AURORA_ENDPOINT=$(aws rds describe-db-clusters \
+            --db-cluster-identifier testdriven-production-aurora \
+            --query 'DBClusters[0].Endpoint' \
+            --output text 2>/dev/null)
+
+        if [[ "$AURORA_ENDPOINT" != "None" && -n "$AURORA_ENDPOINT" ]]; then
+            echo "✅ Found Aurora cluster endpoint: $AURORA_ENDPOINT"
+            RDS_ENDPOINT="$AURORA_ENDPOINT"
+            echo "🔧 Using Aurora endpoint for production deployment"
+        else
+            echo "❌ Could not find Aurora cluster 'testdriven-production-aurora'"
+            echo "📋 Please either:"
+            echo "   1. Set up Aurora cluster: ./scripts/setup-aurora-serverless.sh"
+            echo "   2. Update AWS_RDS_URI secret with correct endpoint"
+            echo "🔗 Aurora setup guide: https://github.com/owenabrams/testdriven-app/blob/production/docs/DATABASE_SETUP.md"
+            return 1
+        fi
     fi
 
     echo "✅ RDS credentials parsed successfully"
