@@ -65,14 +65,16 @@ Resources:
       Name: !Sub 'testdriven-client-${Environment}-tg'
       Port: 80
       Protocol: HTTP
-      TargetType: instance
+      TargetType: ip
       VpcId: !Ref VpcId
-      HealthCheckPath: /
+      HealthCheckPath: /health
       HealthCheckProtocol: HTTP
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 3
+      HealthCheckMatcher:
+        HttpCode: '200'
       Tags:
         - Key: Name
           Value: !Sub 'testdriven-client-${Environment}-tg'
@@ -86,7 +88,7 @@ Resources:
       Name: !Sub 'testdriven-users-${Environment}-tg'
       Port: 5000
       Protocol: HTTP
-      TargetType: instance
+      TargetType: ip
       VpcId: !Ref VpcId
       HealthCheckPath: /ping
       HealthCheckProtocol: HTTP
@@ -94,6 +96,8 @@ Resources:
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 3
+      HealthCheckMatcher:
+        HttpCode: '200'
       Tags:
         - Key: Name
           Value: !Sub 'testdriven-users-${Environment}-tg'
@@ -122,9 +126,22 @@ Resources:
           TargetGroupArn: !Ref UsersTargetGroup
       Conditions:
         - Field: path-pattern
-          Values: ['/users*', '/auth*']
+          Values: ['/users*', '/auth*', '/ping*', '/monitoring*', '/api*']
       ListenerArn: !Ref ALBListener
       Priority: 100
+
+  # Health check rule for backend
+  HealthCheckListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref UsersTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: ['/ping', '/health']
+      ListenerArn: !Ref ALBListener
+      Priority: 50
 
 
 

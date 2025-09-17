@@ -299,6 +299,15 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
+    - name: 🌐 Deploy Application Load Balancer (Production)
+      if: matrix.environment == 'production'
+      run: |
+        echo "🌐 Deploying Application Load Balancer..."
+        chmod +x scripts/deploy-alb-production.sh
+        ./scripts/deploy-alb-production.sh
+      env:
+        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+
     - name: 🚀 Deploy to ECS (Staging)
       if: matrix.environment == 'staging'
       run: |
