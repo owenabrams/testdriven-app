@@ -70,7 +70,7 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        cache-dependency-path: services/client/package-lock.json
+        cache-dependency-path: client/package-lock.json
 
     - name: 🔧 Install backend dependencies
       run: |
@@ -81,7 +81,7 @@ jobs:
 
     - name: 🔧 Install frontend dependencies
       run: |
-        cd services/client
+        cd client
         npm ci --prefer-offline --no-audit
 
     - name: 🔍 Run backend linting
@@ -91,7 +91,7 @@ jobs:
 
     - name: 🔍 Run frontend linting
       run: |
-        cd services/client
+        cd client
         if npm run | grep -q "lint"; then npm run lint; fi
 
     - name: 🧪 Run backend tests with coverage
@@ -105,7 +105,7 @@ jobs:
 
     - name: 🧪 Run frontend tests with coverage
       run: |
-        cd services/client
+        cd client
         npm run coverage
 
     - name: 📊 Upload backend coverage to Codecov
@@ -118,7 +118,7 @@ jobs:
     - name: 📊 Upload frontend coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
-        directory: services/client/coverage
+        directory: client/coverage
         flags: frontend
         name: frontend-coverage
 
