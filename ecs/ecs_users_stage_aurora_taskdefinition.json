@@ -2,9 +2,9 @@
   "containerDefinitions": [
     {
       "name": "users",
-      "image": "%s.dkr.ecr.us-east-1.amazonaws.com/testdriven-backend:production",
+      "image": "%s.dkr.ecr.us-east-1.amazonaws.com/testdriven-backend:staging",
       "essential": true,
-      "memory": 1024,
+      "memory": 512,
       "portMappings": [
         {
           "protocol": "tcp",
@@ -14,15 +14,15 @@
       "environment": [
         {
           "name": "APP_SETTINGS",
-          "value": "project.config.ProductionConfig"
+          "value": "project.config.StagingConfig"
         },
         {
           "name": "FLASK_ENV",
-          "value": "production"
+          "value": "staging"
         },
         {
           "name": "DATABASE_URL",
-          "value": "postgresql://webapp:%s@testdriven-production-aurora.cluster-copao2ykcikc.us-east-1.rds.amazonaws.com:5432/users_production"
+          "value": "postgresql://webapp:%s@testdriven-production-aurora.cluster-copao2ykcikc.us-east-1.rds.amazonaws.com:5432/users_staging"
         },
         {
           "name": "SECRET_KEY",
@@ -36,7 +36,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "testdriven-users-prod",
+          "awslogs-group": "/ecs/testdriven-users-staging",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
         }
@@ -44,18 +44,18 @@
       "healthCheck": {
         "command": ["CMD-SHELL", "curl -f http://localhost:5000/ping || exit 1"],
         "interval": 30,
-        "timeout": 10,
+        "timeout": 5,
         "retries": 3,
-        "startPeriod": 120
+        "startPeriod": 60
       },
       "stopTimeout": 30
     }
   ],
-  "family": "testdriven-users-production-td",
+  "family": "testdriven-users-staging-aurora-td",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "1024",
-  "memory": "2048",
-  "executionRoleArn": "arn:aws:iam::%s:role/testdriven-production-ecs-execution-role",
-  "taskRoleArn": "arn:aws:iam::%s:role/testdriven-production-ecs-task-role"
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::%s:role/testdriven-staging-ecs-execution-role",
+  "taskRoleArn": "arn:aws:iam::%s:role/testdriven-staging-ecs-task-role"
 }

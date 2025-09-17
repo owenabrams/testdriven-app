@@ -1,0 +1,370 @@
+name: 🚀 Professional Aurora CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, staging, develop]
+  pull_request:
+    branches: [main, staging]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      run_migrations:
+        description: 'Run database migrations'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  AURORA_CLUSTER_ID: testdriven-production-aurora
+
+jobs:
+  # ============================================================================
+  # TESTING PHASE
+  # ============================================================================
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11']
+        node-version: ['18']
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: testdriven_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 🐍 Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: 📦 Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: services/client/package-lock.json
+
+    - name: 🔧 Install backend dependencies
+      run: |
+        cd services/users
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-cov pytest-xdist
+
+    - name: 🔧 Install frontend dependencies
+      run: |
+        cd services/client
+        npm ci --prefer-offline --no-audit
+
+    - name: 🔍 Run backend linting
+      run: |
+        cd services/users
+        python -m flake8 project --max-line-length=120 --exclude=migrations,venv --ignore=E501,W503,E203
+
+    - name: 🔍 Run frontend linting
+      run: |
+        cd services/client
+        if npm run | grep -q "lint"; then npm run lint; fi
+
+    - name: 🧪 Run backend tests with coverage
+      env:
+        DATABASE_TEST_URL: postgresql://postgres:postgres@localhost:5432/testdriven_test
+        FLASK_ENV: testing
+        SECRET_KEY: testing-secret-key
+      run: |
+        cd services/users
+        python -m pytest --cov=project --cov-report=xml --cov-report=term-missing -v -n auto
+
+    - name: 🧪 Run frontend tests with coverage
+      run: |
+        cd services/client
+        npm run coverage
+
+    - name: 📊 Upload backend coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: services/users/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+    - name: 📊 Upload frontend coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        directory: services/client/coverage
+        flags: frontend
+        name: frontend-coverage
+
+  # ============================================================================
+  # SECURITY SCANNING
+  # ============================================================================
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔍 Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: 📤 Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # ============================================================================
+  # BUILD PHASE
+  # ============================================================================
+  build:
+    name: 🏗️ Build & Push Images
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' || github.event_name == 'workflow_dispatch'
+    
+    strategy:
+      matrix:
+        service: [backend, frontend]
+    
+    outputs:
+      backend-image: ${{ steps.build-backend.outputs.image }}
+      frontend-image: ${{ steps.build-frontend.outputs.image }}
+      
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🔑 Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: 🏗️ Build backend image
+      if: matrix.service == 'backend'
+      id: build-backend
+      run: |
+        cd services/users
+        IMAGE_TAG=${GITHUB_SHA::8}
+        IMAGE_URI=$ECR_REGISTRY/testdriven-backend:$IMAGE_TAG
+        
+        docker build \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --cache-from $ECR_REGISTRY/testdriven-backend:latest \
+          -t $IMAGE_URI \
+          -t $ECR_REGISTRY/testdriven-backend:latest \
+          .
+        
+        docker push $IMAGE_URI
+        docker push $ECR_REGISTRY/testdriven-backend:latest
+        
+        echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+  # ============================================================================
+  # DATABASE MIGRATION PHASE
+  # ============================================================================
+  migrate:
+    name: 🗃️ Database Migration
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: 🔧 Install migration dependencies
+      run: |
+        cd services/users
+        pip install -r requirements.txt
+
+    - name: 🔍 Check Aurora cluster status
+      run: |
+        aws rds describe-db-clusters \
+          --db-cluster-identifier $AURORA_CLUSTER_ID \
+          --query 'DBClusters[0].Status' \
+          --output text
+
+    - name: 🗃️ Run database migrations (Staging)
+      if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+      env:
+        FLASK_ENV: staging
+        APP_SETTINGS: project.config.StagingConfig
+        DATABASE_URL: postgresql://webapp:${{ secrets.AURORA_DB_PASSWORD }}@testdriven-production-aurora.cluster-copao2ykcikc.us-east-1.rds.amazonaws.com:5432/users_staging
+        SECRET_KEY: ${{ secrets.STAGING_SECRET_KEY }}
+        AURORA_DB_PASSWORD: ${{ secrets.AURORA_DB_PASSWORD }}
+      run: |
+        cd services/users
+        echo "🔄 Running staging migrations..."
+        python manage.py db upgrade
+        echo "✅ Staging migrations completed"
+
+    - name: 🗃️ Run database migrations (Production)
+      if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+      env:
+        FLASK_ENV: production
+        APP_SETTINGS: project.config.ProductionConfig
+        DATABASE_URL: postgresql://webapp:${{ secrets.AURORA_DB_PASSWORD }}@testdriven-production-aurora.cluster-copao2ykcikc.us-east-1.rds.amazonaws.com:5432/users_production
+        SECRET_KEY: ${{ secrets.PRODUCTION_SECRET_KEY }}
+        AURORA_DB_PASSWORD: ${{ secrets.AURORA_DB_PASSWORD }}
+      run: |
+        cd services/users
+        echo "🔄 Running production migrations..."
+        python manage.py db upgrade
+        echo "✅ Production migrations completed"
+
+    - name: 🔍 Validate migration success
+      env:
+        DATABASE_URL: postgresql://webapp:${{ secrets.AURORA_DB_PASSWORD }}@testdriven-production-aurora.cluster-copao2ykcikc.us-east-1.rds.amazonaws.com:5432/users_production
+        AURORA_DB_PASSWORD: ${{ secrets.AURORA_DB_PASSWORD }}
+      run: |
+        cd services/users
+        python scripts/validate_migrations.py
+
+  # ============================================================================
+  # DEPLOYMENT PHASE
+  # ============================================================================
+  deploy:
+    name: 🚀 Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: [build, migrate]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' || github.event_name == 'workflow_dispatch'
+
+    strategy:
+      matrix:
+        environment:
+          - ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: 🚀 Deploy to ECS (Staging)
+      if: matrix.environment == 'staging'
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        ./scripts/deploy-ecs-staging-aurora.sh
+      env:
+        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        AURORA_DB_PASSWORD: ${{ secrets.AURORA_DB_PASSWORD }}
+        STAGING_SECRET_KEY: ${{ secrets.STAGING_SECRET_KEY }}
+
+    - name: 🚀 Deploy to ECS (Production)
+      if: matrix.environment == 'production'
+      run: |
+        echo "🚀 Deploying to production environment..."
+        ./scripts/deploy-ecs-production-aurora.sh
+      env:
+        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        AURORA_DB_PASSWORD: ${{ secrets.AURORA_DB_PASSWORD }}
+        PRODUCTION_SECRET_KEY: ${{ secrets.PRODUCTION_SECRET_KEY }}
+
+    - name: 🔍 Verify deployment health
+      run: |
+        echo "🔍 Verifying deployment health..."
+        sleep 60  # Wait for services to start
+        ./scripts/verify-deployment-health.sh ${{ matrix.environment }}
+
+  # ============================================================================
+  # NOTIFICATION PHASE
+  # ============================================================================
+  notify:
+    name: 📢 Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always()
+
+    steps:
+    - name: 📢 Notify success
+      if: needs.deploy.result == 'success'
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "🌟 Aurora PostgreSQL integration working perfectly"
+        echo "🚀 Application is live and healthy"
+
+    - name: 📢 Notify failure
+      if: needs.deploy.result == 'failure'
+      run: |
+        echo "❌ Deployment failed!"
+        echo "🔍 Check logs for details"
+        exit 1
+
+    - name: 🏗️ Build frontend image
+      if: matrix.service == 'frontend'
+      id: build-frontend
+      run: |
+        cd services/client
+        IMAGE_TAG=${GITHUB_SHA::8}
+        IMAGE_URI=$ECR_REGISTRY/testdriven-frontend:$IMAGE_TAG
+        
+        docker build \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --cache-from $ECR_REGISTRY/testdriven-frontend:latest \
+          -t $IMAGE_URI \
+          -t $ECR_REGISTRY/testdriven-frontend:latest \
+          .
+        
+        docker push $IMAGE_URI
+        docker push $ECR_REGISTRY/testdriven-frontend:latest
+        
+        echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT

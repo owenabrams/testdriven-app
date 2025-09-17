@@ -1,0 +1,59 @@
+# Aurora PostgreSQL Configuration
+# Professional database configuration for different environments
+
+environments:
+  development:
+    database:
+      type: "sqlite"
+      path: "instance/dev.db"
+
+  testing:
+    database:
+      type: "sqlite"
+      path: "instance/test.db"
+      
+  staging:
+    database:
+      type: "aurora_postgresql"
+      cluster_endpoint: "testdriven-production-aurora.cluster-copao2ykcikc.us-east-1.rds.amazonaws.com"
+      reader_endpoint: "testdriven-production-aurora.cluster-ro-copao2ykcikc.us-east-1.rds.amazonaws.com"
+      port: 5432
+      name: "users_staging"
+      username: "webapp"
+      ssl_mode: "require"
+      connection_timeout: 30
+      pool_size: 10
+      max_overflow: 20
+      
+  production:
+    database:
+      type: "aurora_postgresql"
+      cluster_endpoint: "testdriven-production-aurora.cluster-copao2ykcikc.us-east-1.rds.amazonaws.com"
+      reader_endpoint: "testdriven-production-aurora.cluster-ro-copao2ykcikc.us-east-1.rds.amazonaws.com"
+      port: 5432
+      name: "users_production"
+      username: "webapp"
+      ssl_mode: "require"
+      connection_timeout: 30
+      pool_size: 20
+      max_overflow: 40
+
+# Migration Configuration
+migrations:
+  timeout: 300  # 5 minutes
+  retry_attempts: 3
+  backup_before_migration: true
+  validate_after_migration: true
+  
+# Monitoring Configuration
+monitoring:
+  health_check_interval: 30
+  connection_pool_monitoring: true
+  slow_query_threshold: 1000  # milliseconds
+  log_level: "INFO"
+
+# Security Configuration
+security:
+  require_ssl: true
+  connection_encryption: true
+  audit_logging: true
