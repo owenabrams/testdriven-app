@@ -14,6 +14,13 @@ env:
   AWS_DEFAULT_REGION: us-east-1
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
+  # These will be set dynamically in jobs but declared here for validation
+  REPO: ""
+  ENVIRONMENT: ""
+  TAG: ""
+  VERSION: ""
+  TIMESTAMP: ""
+  REACT_APP_USERS_SERVICE_URL: ""
 
 jobs:
   test:
@@ -146,18 +153,26 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Set environment variables
+    - name: Set environment variables with separation
       run: |
         echo "REPO=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
         echo "COMMIT_SHORT=${GITHUB_SHA:0:7}" >> $GITHUB_ENV
-        if [[ $GITHUB_REF == 'refs/heads/production' ]]; then
-          echo "DOCKER_ENV=prod" >> $GITHUB_ENV
-          echo "TAG=production" >> $GITHUB_ENV
-          echo "REACT_APP_USERS_SERVICE_URL=${{ secrets.LOAD_BALANCER_PROD_DNS_NAME }}" >> $GITHUB_ENV
+        echo "TIMESTAMP=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+        echo "VERSION=$(git describe --tags --always)" >> $GITHUB_ENV
+
+        # Environment-specific configuration with clear separation
+        if [[ $GITHUB_REF == 'refs/heads/main' ]]; then
+          echo "ENVIRONMENT=production" >> $GITHUB_ENV
+          echo "TAG=production-${GITHUB_SHA:0:7}-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+          echo "REACT_APP_USERS_SERVICE_URL=http://testdriven-production-alb-1003393901.us-east-1.elb.amazonaws.com" >> $GITHUB_ENV
+        elif [[ $GITHUB_REF == 'refs/heads/staging' ]]; then
+          echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+          echo "TAG=staging-${GITHUB_SHA:0:7}-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+          echo "REACT_APP_USERS_SERVICE_URL=http://testdriven-staging-alb.us-east-1.elb.amazonaws.com" >> $GITHUB_ENV
         else
-          echo "DOCKER_ENV=stage" >> $GITHUB_ENV
-          echo "TAG=staging" >> $GITHUB_ENV
-          echo "REACT_APP_USERS_SERVICE_URL=${{ secrets.LOAD_BALANCER_STAGE_DNS_NAME }}" >> $GITHUB_ENV
+          echo "ENVIRONMENT=development" >> $GITHUB_ENV
+          echo "TAG=development-${GITHUB_SHA:0:7}-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+          echo "REACT_APP_USERS_SERVICE_URL=http://localhost:5000" >> $GITHUB_ENV
         fi
 
     - name: Build and push optimized images with cache
@@ -167,11 +182,13 @@ jobs:
         file: ${{ matrix.service == 'backend' && './services/users/Dockerfile' || './client/Dockerfile' }}
         push: true
         tags: |
-          ${{ env.REPO }}/testdriven-${{ matrix.service }}:${{ env.TAG }}
-          ${{ env.REPO }}/testdriven-${{ matrix.service }}:${{ env.COMMIT_SHORT }}
-          ${{ env.REPO }}/testdriven-${{ matrix.service }}:latest
+          ${{ env.REPO }}/testdriven-${{ matrix.service }}-${{ env.ENVIRONMENT }}:${{ env.TAG }}
+          ${{ env.REPO }}/testdriven-${{ matrix.service }}-${{ env.ENVIRONMENT }}:${{ env.VERSION }}-${{ env.TIMESTAMP }}
+          ${{ env.REPO }}/testdriven-${{ matrix.service }}-${{ env.ENVIRONMENT }}:latest
         build-args: |
           BUILDKIT_INLINE_CACHE=1
+          ENVIRONMENT=${{ env.ENVIRONMENT }}
+          BUILD_VERSION=${{ env.VERSION }}
           ${{ matrix.service == 'frontend' && format('REACT_APP_USERS_SERVICE_URL={0}', env.REACT_APP_USERS_SERVICE_URL) || '' }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -180,7 +197,7 @@ jobs:
     - name: Run security scan
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ env.REPO }}/testdriven-${{ matrix.service }}:${{ env.TAG }}
+        image-ref: ${{ env.REPO }}/testdriven-${{ matrix.service }}-${{ env.ENVIRONMENT }}:${{ env.TAG }}
         format: 'sarif'
         output: 'trivy-results.sarif'
 
@@ -199,22 +216,32 @@ jobs:
         # Deploy ECS services with zero-downtime updates
         ./scripts/deploy-ecs-staging.sh
 
+    - name: Setup Production Data (staging)
+      if: github.ref == 'refs/heads/staging'
+      env:
+        ECS_CLUSTER: testdriven-staging-cluster
+        ECS_SERVICE: testdriven-staging-backend
+      run: |
+        # Setup database schema and calendar data for staging
+        chmod +x scripts/setup-production-data.sh
+        ./scripts/setup-production-data.sh staging
+
     - name: Deploy to ECS (production)
       if: github.ref == 'refs/heads/production'
-      env:
-        AWS_RDS_URI: ${{ secrets.AWS_RDS_URI }}
-        PRODUCTION_SECRET_KEY: ${{ secrets.PRODUCTION_SECRET_KEY }}
       run: |
         # Install jq for JSON processing
         sudo apt-get update && sudo apt-get install -y jq
 
-        # Check if required secrets are set
-        if [ -z "$AWS_RDS_URI" ] || [ -z "$PRODUCTION_SECRET_KEY" ]; then
-          echo "❌ Missing required secrets: AWS_RDS_URI and PRODUCTION_SECRET_KEY"
-          echo "📋 Please set these in GitHub repository secrets"
-          echo "⚠️  Skipping production deployment due to missing secrets"
-          exit 0
-        fi
+        # Use enhanced deployment script
+        chmod +x scripts/deploy-enhanced.sh
+        ./scripts/deploy-enhanced.sh production all
 
-        # Deploy ECS production services
-        ./scripts/deploy-ecs-production-automated.sh
+    - name: Setup Production Data (production)
+      if: github.ref == 'refs/heads/production'
+      env:
+        ECS_CLUSTER: testdriven-production-cluster
+        ECS_SERVICE: testdriven-production-backend
+      run: |
+        # Setup database schema and calendar data for production
+        chmod +x scripts/setup-production-data.sh
+        ./scripts/setup-production-data.sh production

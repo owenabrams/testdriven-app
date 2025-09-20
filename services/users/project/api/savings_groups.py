@@ -12,6 +12,179 @@ from project.api.notifications import create_system_notification
 savings_groups_blueprint = Blueprint('savings_groups', __name__)
 
 
+@savings_groups_blueprint.route('/user-membership/<int:user_id>', methods=['GET'])
+@authenticate
+def get_user_membership(requesting_user_id, user_id):
+    """Get user's membership information across all groups"""
+    # Allow users to view their own membership or admins to view any
+    user = User.query.filter_by(id=requesting_user_id).first()
+    if not user:
+        return jsonify({'status': 'fail', 'message': 'User not found.'}), 404
+
+    if requesting_user_id != user_id and not (user.is_super_admin or user.admin):
+        return jsonify({'status': 'fail', 'message': 'Permission denied.'}), 403
+
+    # Get all group memberships for the user
+    memberships = GroupMember.query.filter_by(user_id=user_id, is_active=True).all()
+
+    membership_data = []
+    for membership in memberships:
+        group = membership.group
+        membership_info = {
+            'member_id': membership.id,
+            'group_id': group.id,
+            'group_name': group.name,
+            'role': membership.role,
+            'joined_date': membership.joined_date.isoformat() if membership.joined_date else None,
+            'is_officer': membership.is_officer(),
+            'group_location': f"{group.district}, {group.parish}, {group.village}",
+            'group_status': group.state
+        }
+        membership_data.append(membership_info)
+
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'user_id': user_id,
+            'memberships': membership_data,
+            'total_groups': len(membership_data)
+        }
+    }), 200
+
+
+@savings_groups_blueprint.route('/admin-dashboard', methods=['GET'])
+@authenticate
+def get_admin_dashboard(user_id):
+    """Get admin dashboard data"""
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify({'status': 'fail', 'message': 'User not found.'}), 404
+
+    if not (user.is_super_admin or user.admin):
+        return jsonify({'status': 'fail', 'message': 'Admin access required.'}), 403
+
+    # Get summary statistics
+    total_groups = SavingsGroup.query.count()
+    total_members = GroupMember.query.filter_by(is_active=True).count()
+
+    # Get total savings across all groups
+    from project.api.models import MemberSaving
+    total_savings = db.session.query(func.sum(MemberSaving.current_balance)).scalar() or 0
+
+    # Get recent groups
+    recent_groups = SavingsGroup.query.order_by(desc(SavingsGroup.created_date)).limit(5).all()
+
+    # Get groups by status
+    groups_by_status = db.session.query(
+        SavingsGroup.state,
+        func.count(SavingsGroup.id)
+    ).group_by(SavingsGroup.state).all()
+
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'summary': {
+                'total_groups': total_groups,
+                'total_members': total_members,
+                'total_savings': float(total_savings),
+                'active_groups': len([count for status, count in groups_by_status if status == 'ACTIVE'])
+            },
+            'recent_groups': [group.to_json() for group in recent_groups],
+            'groups_by_status': dict(groups_by_status)
+        }
+    }), 200
+
+
+@savings_groups_blueprint.route('/member-dashboard/<int:member_id>', methods=['GET'])
+@authenticate
+def get_member_dashboard(user_id, member_id):
+    """Get member dashboard data"""
+    member = GroupMember.query.filter_by(id=member_id).first()
+    if not member:
+        return jsonify({'status': 'fail', 'message': 'Member not found.'}), 404
+
+    # Check permissions - user can view their own dashboard or admins can view any
+    user = User.query.filter_by(id=user_id).first()
+    if member.user_id != user_id and not (user.is_super_admin or user.admin):
+        return jsonify({'status': 'fail', 'message': 'Permission denied.'}), 403
+
+    # Get member savings
+    from project.api.models import MemberSaving, SavingTransaction, MeetingAttendance
+    savings = MemberSaving.query.filter_by(member_id=member_id, is_active=True).all()
+
+    # Get recent transactions
+    recent_transactions = SavingTransaction.query.join(MemberSaving).filter(
+        MemberSaving.member_id == member_id
+    ).order_by(desc(SavingTransaction.processed_date)).limit(10).all()
+
+    # Get attendance rate (last 3 months)
+    three_months_ago = date.today() - timedelta(days=90)
+    total_meetings = MeetingAttendance.query.filter(
+        MeetingAttendance.member_id == member_id,
+        MeetingAttendance.meeting_date >= three_months_ago
+    ).count()
+
+    attended_meetings = MeetingAttendance.query.filter(
+        MeetingAttendance.member_id == member_id,
+        MeetingAttendance.meeting_date >= three_months_ago,
+        MeetingAttendance.attended == True
+    ).count()
+
+    attendance_rate = (attended_meetings / total_meetings * 100) if total_meetings > 0 else 0
+
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'member': member.to_json(),
+            'group': member.group.to_json(),
+            'savings': [saving.to_json() for saving in savings],
+            'recent_transactions': [tx.to_json() for tx in recent_transactions],
+            'attendance_rate': round(attendance_rate, 2),
+            'total_savings': sum(float(saving.current_balance) for saving in savings)
+        }
+    }), 200
+
+
+@savings_groups_blueprint.route('/member-transactions/<int:member_id>', methods=['GET'])
+@authenticate
+def get_member_transactions(user_id, member_id):
+    """Get all transactions for a member"""
+    member = GroupMember.query.filter_by(id=member_id).first()
+    if not member:
+        return jsonify({'status': 'fail', 'message': 'Member not found.'}), 404
+
+    # Check permissions
+    user = User.query.filter_by(id=user_id).first()
+    if member.user_id != user_id and not (user.is_super_admin or user.admin):
+        return jsonify({'status': 'fail', 'message': 'Permission denied.'}), 403
+
+    # Get transactions with pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+
+    from project.api.models import SavingTransaction, MemberSaving
+    transactions_query = SavingTransaction.query.join(MemberSaving).filter(
+        MemberSaving.member_id == member_id
+    ).order_by(desc(SavingTransaction.processed_date))
+
+    transactions = transactions_query.paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'transactions': [tx.to_json() for tx in transactions.items],
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': transactions.total,
+                'pages': transactions.pages
+            }
+        }
+    }), 200
+
+
 def service_permission_required(service_name, permission_type='read'):
     """Decorator to require specific service permissions"""
     def decorator(f):

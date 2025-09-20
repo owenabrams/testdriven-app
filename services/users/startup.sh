@@ -97,7 +97,7 @@ handle_migrations() {
 # Function to seed demo data intelligently
 seed_demo_data() {
     echo "🌱 Checking demo data requirements..."
-    
+
     # Check if we need to seed data
     user_count=$(python -c "
 from project import create_app, db
@@ -106,12 +106,24 @@ app = create_app()
 with app.app_context():
     print(User.query.count())
 " 2>/dev/null || echo "0")
-    
+
     if [ "$user_count" -lt 5 ]; then
         echo "📊 Seeding demo data (found $user_count users)..."
         python manage.py seed_demo_data || echo "⚠️  Demo data seeding completed with warnings"
     else
         echo "✅ Demo data already exists ($user_count users found)"
+    fi
+}
+
+# Function to ensure calendar data is ready
+ensure_calendar_data() {
+    echo "📅 Ensuring calendar data is ready..."
+
+    # Run the calendar data initialization script
+    if [ -f "scripts/ensure_calendar_data.py" ]; then
+        python scripts/ensure_calendar_data.py || echo "⚠️  Calendar data initialization completed with warnings"
+    else
+        echo "⚠️  Calendar data script not found, skipping..."
     fi
 }
 
@@ -137,11 +149,20 @@ main() {
     
     # Step 2: Handle migrations
     handle_migrations
-    
+
+    # Step 2.5: Ensure database schema is correct
+    if [ -f "scripts/ensure_database_schema.py" ]; then
+        echo "🗄️  Validating database schema..."
+        python scripts/ensure_database_schema.py || echo "⚠️  Schema validation completed with warnings"
+    fi
+
     # Step 3: Seed demo data if needed
     seed_demo_data
-    
-    # Step 4: Start the server
+
+    # Step 4: Ensure calendar data is ready
+    ensure_calendar_data
+
+    # Step 5: Start the server
     start_server
 }
 

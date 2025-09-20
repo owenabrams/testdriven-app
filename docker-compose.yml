@@ -1,8 +1,17 @@
+# 🏗️ DEVELOPMENT ENVIRONMENT DOCKER COMPOSE
+# This file is ONLY for local development
+# Production/Staging use environment-specific builds via GitHub Actions
+
 services:
   backend:
     build:
       context: ./services/users
       dockerfile: Dockerfile
+      args:
+        - ENVIRONMENT=development
+        - BUILD_VERSION=${BUILD_VERSION:-dev-local}
+        - BUILD_TIMESTAMP=${BUILD_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}
+    image: testdriven-backend-local:latest
     ports:
       - "5000:5000"
     environment:
@@ -10,6 +19,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/testdriven_dev
       - SECRET_KEY=dev-secret-key
       - AUTO_SEED_DB=true
+      - ENVIRONMENT=development
     volumes:
       - ./services/users:/usr/src/app
     depends_on:
@@ -27,19 +37,24 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+      args:
+        - ENVIRONMENT=development
+        - REACT_APP_API_URL=http://localhost:3000
+        - BUILD_VERSION=${BUILD_VERSION:-dev-local}
+        - BUILD_TIMESTAMP=${BUILD_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}
+    image: testdriven-frontend-local:latest
     ports:
-      - "3000:3000"
+      - "3000:80"
     environment:
-      - REACT_APP_USERS_SERVICE_URL=http://localhost:5000
-    volumes:
-      - ./client:/usr/src/app
-      - /usr/src/app/node_modules
+      - REACT_APP_USERS_SERVICE_URL=http://localhost:3000
+      - REACT_APP_API_URL=http://localhost:3000
+      - ENVIRONMENT=development
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3

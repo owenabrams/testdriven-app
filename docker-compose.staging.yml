@@ -1,0 +1,58 @@
+# 🚀 STAGING ENVIRONMENT DOCKER COMPOSE
+# This file is for staging environment deployment
+# Uses pre-built images from ECR
+
+version: '3.8'
+
+services:
+  backend:
+    image: ${ECR_REGISTRY}/testdriven-backend-staging:${IMAGE_TAG:-latest}
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=staging
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=staging
+      - AUTO_SEED_DB=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  frontend:
+    image: ${ECR_REGISTRY}/testdriven-frontend-staging:${IMAGE_TAG:-latest}
+    ports:
+      - "80:80"
+    environment:
+      - ENVIRONMENT=staging
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-testdriven_staging}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_staging_data:

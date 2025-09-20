@@ -1,9 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Use frontend proxy for local development, environment variable for production
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${API_BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -70,6 +71,22 @@ export const savingsGroupsAPI = {
   getAdminDashboard: () => apiClient.get('/admin-dashboard'),
   getMemberDashboard: (memberId) => apiClient.get(`/member-dashboard/${memberId}`),
   getMemberTransactions: (memberId) => apiClient.get(`/member-transactions/${memberId}`),
+
+  // Loans
+  checkLoanEligibility: (groupId, memberId, data) => apiClient.post(`/savings-groups/${groupId}/members/${memberId}/loan-eligibility`, data),
+  getLoanHistory: (groupId, memberId) => apiClient.get(`/savings-groups/${groupId}/members/${memberId}/loan-history`),
+
+  // Calendar Events
+  getCalendarEvents: (params = {}) => apiClient.get('/calendar/events', { params }),
+  getCalendarEventDetails: (eventId) => apiClient.get(`/api/calendar/events/${eventId}`),
+  getFilterOptions: () => apiClient.get('/api/calendar/filter-options'),
+
+  // Target Campaigns
+  getTargetCampaigns: (groupId) => apiClient.get(`/savings-groups/${groupId}/target-campaigns`),
+
+  // Member specific endpoints
+  getMembers: (groupId) => apiClient.get(`/savings-groups/${groupId}/members`),
+  getMember: (groupId, memberId) => apiClient.get(`/savings-groups/${groupId}/members/${memberId}`),
 };
 
 export const campaignsAPI = {

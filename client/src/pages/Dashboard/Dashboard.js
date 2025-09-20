@@ -24,37 +24,70 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import savingsGroupsAPI from '../../services/savingsGroupsAPI';
+import { savingsGroupsAPI } from '../../services/api';
 import { campaignsAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import StatsCard from '../../components/Dashboard/StatsCard';
 import RecentActivity from '../../components/Dashboard/RecentActivity';
 import QuickActions from '../../components/Dashboard/QuickActions';
-import LoadingSpinner from '../../components/Common/LoadingSpinner';
+import ProfessionalLoader from '../../components/Common/ProfessionalLoader';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   // Fetch dashboard data
-  const { data: groups, isLoading: groupsLoading } = useQuery(
+  const { data: groups, isLoading: groupsLoading, error: groupsError } = useQuery(
     'dashboard-groups',
-    () => savingsGroupsAPI.getMockData(),
+    () => savingsGroupsAPI.getGroups(),
     {
-      select: (response) => response.groups || [],
+      select: (response) => response.data?.data || [],
+      retry: 2,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     }
   );
 
-  const { data: campaigns, isLoading: campaignsLoading } = useQuery(
+  const { data: campaigns, isLoading: campaignsLoading, error: campaignsError } = useQuery(
     'dashboard-campaigns',
-    () => savingsGroupsAPI.getMockData(),
+    () => campaignsAPI.getCampaigns(),
     {
-      select: (response) => response.campaigns || [],
+      select: (response) => response.data?.data || [],
+      retry: 2,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     }
   );
 
   if (groupsLoading || campaignsLoading) {
-    return <LoadingSpinner />;
+    return (
+      <ProfessionalLoader
+        message="Loading Dashboard"
+        showSkeleton={true}
+      />
+    );
+  }
+
+  if (groupsError || campaignsError) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Card sx={{ bgcolor: 'error.light', color: 'error.contrastText' }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Error Loading Dashboard
+            </Typography>
+            <Typography variant="body2">
+              {groupsError?.message || campaignsError?.message || 'Failed to load dashboard data. Please try again.'}
+            </Typography>
+            <Button
+              variant="contained"
+              sx={{ mt: 2 }}
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </Box>
+    );
   }
 
   const totalGroups = (groups && Array.isArray(groups)) ? groups.length : 0;
@@ -104,11 +137,19 @@ export default function Dashboard() {
   return (
     <Box>
       {/* Welcome Section */}
-      <Box mb={4}>
-        <Typography variant="h4" gutterBottom>
+      <Box mb={4} sx={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        borderRadius: 2,
+        p: 3,
+        color: 'white'
+      }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
           Welcome back, {user?.username}!
         </Typography>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+          Enhanced Savings Groups Platform - Empowering Financial Inclusion
+        </Typography>
+        <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
           Here's what's happening with your savings groups today.
         </Typography>
       </Box>

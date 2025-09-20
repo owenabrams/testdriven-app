@@ -17,9 +17,9 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import RoleBasedNavigation from '../../components/Navigation/RoleBasedNavigation';
-import savingsGroupsAPI from '../../services/savingsGroupsAPI';
+import { savingsGroupsAPI } from '../../services/api';
 
 // Import page components
 import CalendarPage from './Calendar/CalendarPage';
@@ -43,6 +43,7 @@ export default function SavingsGroupsApp() {
   const [loading, setLoading] = useState(true);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (user) {
@@ -50,14 +51,35 @@ export default function SavingsGroupsApp() {
     }
   }, [user]);
 
+  // Handle URL-based navigation
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const page = urlParams.get('page');
+    if (page) {
+      setCurrentPage(page);
+    }
+  }, [location]);
+
   const loadUserData = async () => {
     try {
       setLoading(true);
-      // For now, use mock data. In production, this would fetch from API
-      const mockData = savingsGroupsAPI.getMockData();
-      setUserData(mockData);
+      // Fetch real user membership data
+      const membershipResponse = await savingsGroupsAPI.getUserMembership(user.id);
+      const groupsResponse = await savingsGroupsAPI.getGroups();
+
+      setUserData({
+        currentUser: user,
+        membership: membershipResponse.data?.data,
+        groups: groupsResponse.data?.data || []
+      });
     } catch (error) {
       console.error('Error loading user data:', error);
+      // Fallback to basic user data
+      setUserData({
+        currentUser: user,
+        membership: null,
+        groups: []
+      });
     } finally {
       setLoading(false);
     }

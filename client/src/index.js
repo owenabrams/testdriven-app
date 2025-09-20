@@ -13,6 +13,14 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes - reduce network requests on mobile
+      cacheTime: 10 * 60 * 1000, // 10 minutes - keep data cached longer on mobile
+      refetchOnReconnect: true, // Refetch when mobile reconnects
+      networkMode: 'offlineFirst', // Better mobile experience
+    },
+    mutations: {
+      retry: 2, // Retry mutations on mobile network issues
+      networkMode: 'offlineFirst',
     },
   },
 });
@@ -77,6 +85,19 @@ const theme = createTheme({
 });
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+
+// Remove initial loader once React starts rendering
+const removeInitialLoader = () => {
+  const loader = document.getElementById('initial-loader');
+  if (loader) {
+    loader.style.opacity = '0';
+    loader.style.transition = 'opacity 0.3s ease-out';
+    setTimeout(() => {
+      loader.remove();
+    }, 300);
+  }
+};
+
 root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -85,7 +106,7 @@ root.render(
         <BrowserRouter>
           <AuthProvider>
             <App />
-            <Toaster 
+            <Toaster
               position="top-right"
               toastOptions={{
                 duration: 4000,
@@ -101,3 +122,6 @@ root.render(
     </QueryClientProvider>
   </React.StrictMode>
 );
+
+// Remove loader after React app has mounted
+setTimeout(removeInitialLoader, 100);

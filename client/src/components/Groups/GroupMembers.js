@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -50,7 +51,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const groupMembersAPI = {
   getMembers: async (groupId) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/savings-groups/${groupId}/members`, {
+    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}/api/savings-groups/${groupId}/members`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -67,7 +68,7 @@ const groupMembersAPI = {
 
   addMember: async (groupId, memberData) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/savings-groups/${groupId}/members`, {
+    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}/api/savings-groups/${groupId}/members`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -86,7 +87,7 @@ const groupMembersAPI = {
 
   updateMember: async (groupId, memberId, memberData) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/savings-groups/${groupId}/members/${memberId}`, {
+    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}/api/savings-groups/${groupId}/members/${memberId}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -105,7 +106,7 @@ const groupMembersAPI = {
 
   removeMember: async (groupId, memberId) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/savings-groups/${groupId}/members/${memberId}`, {
+    const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}/api/savings-groups/${groupId}/members/${memberId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -124,6 +125,7 @@ const groupMembersAPI = {
 
 export default function GroupMembers({ groupId }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState('add'); // 'add', 'edit'
@@ -346,7 +348,20 @@ export default function GroupMembers({ groupId }) {
                             {getOfficerIcon(member.officer_role)}
                           </Avatar>
                           <Box>
-                            <Typography variant="body2" fontWeight="medium">
+                            <Typography
+                              variant="body2"
+                              fontWeight="medium"
+                              sx={{
+                                cursor: 'pointer',
+                                color: 'primary.main',
+                                textDecoration: 'none',
+                                '&:hover': {
+                                  textDecoration: 'underline',
+                                  color: 'primary.dark'
+                                }
+                              }}
+                              onClick={() => navigate(`/members/${member.id}`)}
+                            >
                               {member.name}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">

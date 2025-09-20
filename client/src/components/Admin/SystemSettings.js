@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  MenuItem,
 } from '@mui/material';
 import {
   Settings,
@@ -30,6 +31,7 @@ import {
   Update,
   Backup,
   Warning,
+  Groups,
 } from '@mui/icons-material';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -52,6 +54,17 @@ export default function SystemSettings() {
     auditLogRetentionDays: 365,
     backupFrequency: 'DAILY',
     maintenanceMode: false,
+    // Group filtering and display options
+    enableLocationFiltering: true,
+    enableRiskLevelFiltering: true,
+    enableGenderFiltering: true,
+    showGroupHealthScores: true,
+    enableAdvancedSearch: true,
+    defaultGroupView: 'TABLE', // TABLE, CARDS, LIST
+    groupsPerPage: 20,
+    enableGroupExport: true,
+    showGroupOfficers: true,
+    enableGroupNotifications: true,
   });
 
   const systemStats = {
@@ -349,6 +362,106 @@ export default function SystemSettings() {
                       checked={settings.smsNotifications}
                       onChange={(e) => handleSettingChange('smsNotifications', e.target.checked)}
                     />
+                  </ListItemSecondaryAction>
+                </ListItem>
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Group Management Settings */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Groups sx={{ mr: 1, color: 'primary.main' }} />
+                <Typography variant="h6">Group Management</Typography>
+              </Box>
+
+              <List>
+                <ListItem>
+                  <ListItemText
+                    primary="Location Filtering"
+                    secondary="Enable filtering groups by parish, village, and settlements"
+                  />
+                  <ListItemSecondaryAction>
+                    <Switch
+                      checked={settings.enableLocationFiltering}
+                      onChange={(e) => handleSettingChange('enableLocationFiltering', e.target.checked)}
+                    />
+                  </ListItemSecondaryAction>
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText
+                    primary="Risk Level Filtering"
+                    secondary="Enable filtering groups by risk assessment levels"
+                  />
+                  <ListItemSecondaryAction>
+                    <Switch
+                      checked={settings.enableRiskLevelFiltering}
+                      onChange={(e) => handleSettingChange('enableRiskLevelFiltering', e.target.checked)}
+                    />
+                  </ListItemSecondaryAction>
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText
+                    primary="Gender Filtering"
+                    secondary="Enable filtering by member gender (Male/Female only)"
+                  />
+                  <ListItemSecondaryAction>
+                    <Switch
+                      checked={settings.enableGenderFiltering}
+                      onChange={(e) => handleSettingChange('enableGenderFiltering', e.target.checked)}
+                    />
+                  </ListItemSecondaryAction>
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText
+                    primary="Group Health Scores"
+                    secondary="Display health scores and risk indicators"
+                  />
+                  <ListItemSecondaryAction>
+                    <Switch
+                      checked={settings.showGroupHealthScores}
+                      onChange={(e) => handleSettingChange('showGroupHealthScores', e.target.checked)}
+                    />
+                  </ListItemSecondaryAction>
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText
+                    primary="Advanced Search"
+                    secondary="Enable advanced search across all group fields"
+                  />
+                  <ListItemSecondaryAction>
+                    <Switch
+                      checked={settings.enableAdvancedSearch}
+                      onChange={(e) => handleSettingChange('enableAdvancedSearch', e.target.checked)}
+                    />
+                  </ListItemSecondaryAction>
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText
+                    primary="Groups Per Page"
+                    secondary="Number of groups to display per page"
+                  />
+                  <ListItemSecondaryAction>
+                    <TextField
+                      size="small"
+                      select
+                      value={settings.groupsPerPage}
+                      onChange={(e) => handleSettingChange('groupsPerPage', parseInt(e.target.value))}
+                      sx={{ width: 80 }}
+                    >
+                      <MenuItem value={10}>10</MenuItem>
+                      <MenuItem value={20}>20</MenuItem>
+                      <MenuItem value={50}>50</MenuItem>
+                      <MenuItem value={100}>100</MenuItem>
+                    </TextField>
                   </ListItemSecondaryAction>
                 </ListItem>
               </List>

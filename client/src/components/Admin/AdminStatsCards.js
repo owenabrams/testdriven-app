@@ -25,7 +25,7 @@ export default function AdminStatsCards() {
     'admin-groups-stats',
     () => savingsGroupsAPI.getGroups(),
     {
-      select: (response) => response.data.data || [],
+      select: (response) => response.data?.data || [],
     }
   );
 

@@ -4,6 +4,8 @@ import datetime
 import jwt
 from sqlalchemy.sql import func
 from flask import current_app
+from decimal import Decimal
+import json
 
 from project import db, bcrypt
 
@@ -517,7 +519,7 @@ class GroupMember(db.Model):
         db.UniqueConstraint('group_id', 'user_id', name='unique_group_membership'),
         db.CheckConstraint('share_balance >= 0', name='check_positive_share_balance'),
         db.CheckConstraint('total_contributions >= 0', name='check_positive_contributions'),
-        db.CheckConstraint("gender IN ('M', 'F', 'OTHER')", name='check_valid_gender'),
+        db.CheckConstraint("gender IN ('M', 'F')", name='check_valid_gender'),
         db.CheckConstraint("role IN ('MEMBER', 'OFFICER', 'FOUNDER')", name='check_valid_role'),
     )
 
@@ -1862,6 +1864,18 @@ class CalendarEvent(db.Model):
     mobile_money_provider = db.Column(db.String(50))
     reference_id = db.Column(db.String(100))  # Reference to original transaction/loan/etc
     reference_type = db.Column(db.String(50))  # transaction, loan, meeting, etc
+    location = db.Column(db.String(255))  # Event location
+
+    # Related entity IDs for drill-down functionality
+    related_transaction_id = db.Column(db.Integer)
+    related_loan_id = db.Column(db.Integer)
+    related_campaign_id = db.Column(db.Integer)
+    related_fine_id = db.Column(db.Integer)
+
+    # Meeting-specific fields
+    meeting_type = db.Column(db.String(20))  # REGULAR, SPECIAL, ANNUAL
+    attendees_count = db.Column(db.Integer)
+    total_members = db.Column(db.Integer)
     
     # Timestamps
     created_date = db.Column(db.DateTime, default=func.now(), nullable=False)
@@ -1912,9 +1926,492 @@ class CalendarEvent(db.Model):
             "mobile_money_provider": self.mobile_money_provider,
             "reference_id": self.reference_id,
             "reference_type": self.reference_type,
+            "location": self.location,
+            "related_transaction_id": self.related_transaction_id,
+            "related_loan_id": self.related_loan_id,
+            "related_campaign_id": self.related_campaign_id,
+            "related_fine_id": self.related_fine_id,
+            "meeting_type": self.meeting_type,
+            "attendees_count": self.attendees_count,
+            "total_members": self.total_members,
             "created_date": self.created_date.isoformat() if self.created_date else None,
             "group_district": self.group.district if self.group else None,
             "group_parish": self.group.parish if self.group else None,
             "group_village": self.group.village if self.group else None,
             "group_region": self.group.region if self.group else None,
+        }
+
+
+# ============================================================================
+# ENHANCED MEETING WORKFLOW MODELS
+# ============================================================================
+
+class GroupConstitution(db.Model):
+    """Group constitution and governance rules"""
+
+    __tablename__ = "group_constitutions"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('savings_groups.id'), nullable=False, unique=True)
+
+    # Constitution details
+    version = db.Column(db.String(20), nullable=False, default='1.0')
+    title = db.Column(db.String(200), nullable=False)
+    preamble = db.Column(db.Text, nullable=True)
+
+    # Governance rules
+    meeting_frequency = db.Column(db.String(20), nullable=False, default='WEEKLY')  # WEEKLY, BIWEEKLY, MONTHLY
+    quorum_percentage = db.Column(db.Numeric(5, 2), nullable=False, default=60.00)  # Minimum attendance for valid meeting
+    voting_threshold = db.Column(db.Numeric(5, 2), nullable=False, default=50.00)  # Percentage needed for decisions
+
+    # Savings rules
+    minimum_personal_savings = db.Column(db.Numeric(10, 2), nullable=False, default=5000.00)
+    minimum_ecd_contribution = db.Column(db.Numeric(10, 2), nullable=False, default=2000.00)
+    minimum_social_contribution = db.Column(db.Numeric(10, 2), nullable=False, default=1000.00)
+
+    # Loan rules
+    max_loan_multiplier = db.Column(db.Numeric(5, 2), nullable=False, default=3.00)  # Times savings balance
+    loan_interest_rate = db.Column(db.Numeric(5, 2), nullable=False, default=10.00)  # Monthly percentage
+    max_loan_term_months = db.Column(db.Integer, nullable=False, default=12)
+
+    # Fine rules
+    absence_fine = db.Column(db.Numeric(10, 2), nullable=False, default=1000.00)
+    late_payment_fine = db.Column(db.Numeric(10, 2), nullable=False, default=500.00)
+    misconduct_fine_range = db.Column(db.String(50), nullable=False, default='1000-10000')
+
+    # Leadership rules
+    leadership_term_months = db.Column(db.Integer, nullable=False, default=12)
+    min_savings_for_leadership = db.Column(db.Numeric(10, 2), nullable=False, default=50000.00)
+
+    # Document management
+    document_url = db.Column(db.String(500), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Approval tracking
+    approved_by_members = db.Column(db.Integer, default=0, nullable=False)
+    total_eligible_voters = db.Column(db.Integer, default=0, nullable=False)
+    approval_percentage = db.Column(db.Numeric(5, 2), default=0.00, nullable=False)
+
+    # Audit fields
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_date = db.Column(db.DateTime, default=func.now(), nullable=False)
+    approved_date = db.Column(db.DateTime, nullable=True)
+    last_amended_date = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    group = db.relationship('SavingsGroup', backref=db.backref('constitution', uselist=False))
+    creator = db.relationship('User', backref='created_constitutions')
+
+    def __init__(self, group_id, title, created_by, **kwargs):
+        self.group_id = group_id
+        self.title = title
+        self.created_by = created_by
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+    def is_approved(self):
+        """Check if constitution is approved by required majority"""
+        if self.total_eligible_voters == 0:
+            return False
+        return self.approval_percentage >= self.voting_threshold
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "group_id": self.group_id,
+            "version": self.version,
+            "title": self.title,
+            "meeting_frequency": self.meeting_frequency,
+            "quorum_percentage": float(self.quorum_percentage),
+            "voting_threshold": float(self.voting_threshold),
+            "savings_rules": {
+                "minimum_personal_savings": float(self.minimum_personal_savings),
+                "minimum_ecd_contribution": float(self.minimum_ecd_contribution),
+                "minimum_social_contribution": float(self.minimum_social_contribution)
+            },
+            "loan_rules": {
+                "max_loan_multiplier": float(self.max_loan_multiplier),
+                "loan_interest_rate": float(self.loan_interest_rate),
+                "max_loan_term_months": self.max_loan_term_months
+            },
+            "fine_rules": {
+                "absence_fine": float(self.absence_fine),
+                "late_payment_fine": float(self.late_payment_fine),
+                "misconduct_fine_range": self.misconduct_fine_range
+            },
+            "is_approved": self.is_approved(),
+            "approval_percentage": float(self.approval_percentage),
+            "created_date": self.created_date.isoformat() if self.created_date else None,
+            "approved_date": self.approved_date.isoformat() if self.approved_date else None
+        }
+
+
+class Meeting(db.Model):
+    """Individual meeting instances with complete workflow tracking"""
+
+    __tablename__ = "meetings"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('savings_groups.id'), nullable=False)
+
+    # Meeting identification
+    meeting_number = db.Column(db.Integer, nullable=False)  # Sequential meeting number for group
+    meeting_date = db.Column(db.Date, nullable=False)
+    meeting_type = db.Column(db.String(20), nullable=False, default='REGULAR')  # REGULAR, SPECIAL, ANNUAL, EMERGENCY
+
+    # Meeting status and workflow
+    status = db.Column(db.String(20), nullable=False, default='SCHEDULED')  # SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+    start_time = db.Column(db.DateTime, nullable=True)
+    end_time = db.Column(db.DateTime, nullable=True)
+
+    # Leadership
+    chairperson_id = db.Column(db.Integer, db.ForeignKey('group_members.id'), nullable=False)
+    secretary_id = db.Column(db.Integer, db.ForeignKey('group_members.id'), nullable=False)
+    treasurer_id = db.Column(db.Integer, db.ForeignKey('group_members.id'), nullable=False)
+
+    # Attendance tracking
+    total_members = db.Column(db.Integer, nullable=False, default=0)
+    members_present = db.Column(db.Integer, nullable=False, default=0)
+    quorum_met = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Meeting outcomes
+    total_savings_collected = db.Column(db.Numeric(12, 2), default=0.00, nullable=False)
+    loans_disbursed_count = db.Column(db.Integer, default=0, nullable=False)
+    loans_disbursed_amount = db.Column(db.Numeric(12, 2), default=0.00, nullable=False)
+    fines_imposed_count = db.Column(db.Integer, default=0, nullable=False)
+    fines_imposed_amount = db.Column(db.Numeric(12, 2), default=0.00, nullable=False)
+
+    # Meeting notes
+    general_notes = db.Column(db.Text, nullable=True)
+    action_items = db.Column(db.Text, nullable=True)  # JSON array of action items
+    next_meeting_date = db.Column(db.Date, nullable=True)
+
+    # Audit fields
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_date = db.Column(db.DateTime, default=func.now(), nullable=False)
+    updated_date = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    # Relationships
+    group = db.relationship('SavingsGroup', backref='meetings')
+    chairperson = db.relationship('GroupMember', foreign_keys=[chairperson_id], backref='chaired_meetings')
+    secretary = db.relationship('GroupMember', foreign_keys=[secretary_id], backref='recorded_meetings')
+    treasurer = db.relationship('GroupMember', foreign_keys=[treasurer_id], backref='treasured_meetings')
+    creator = db.relationship('User', backref='created_meetings')
+
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('group_id', 'meeting_number', name='unique_group_meeting_number'),
+        db.CheckConstraint("status IN ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')", name='check_valid_meeting_status'),
+        db.CheckConstraint("meeting_type IN ('REGULAR', 'SPECIAL', 'ANNUAL', 'EMERGENCY')", name='check_valid_meeting_type'),
+        db.CheckConstraint('members_present <= total_members', name='check_attendance_logic'),
+    )
+
+    def __init__(self, group_id, meeting_date, chairperson_id, secretary_id, treasurer_id, created_by, meeting_type='REGULAR'):
+        self.group_id = group_id
+        self.meeting_date = meeting_date
+        self.chairperson_id = chairperson_id
+        self.secretary_id = secretary_id
+        self.treasurer_id = treasurer_id
+        self.created_by = created_by
+        self.meeting_type = meeting_type
+
+        # Auto-generate meeting number
+        last_meeting = Meeting.query.filter_by(group_id=group_id).order_by(Meeting.meeting_number.desc()).first()
+        self.meeting_number = (last_meeting.meeting_number + 1) if last_meeting else 1
+
+    def calculate_quorum(self):
+        """Calculate if quorum is met based on group constitution"""
+        if self.total_members == 0:
+            return False
+
+        constitution = self.group.constitution
+        if not constitution:
+            # Default quorum of 60%
+            required_percentage = 60.00
+        else:
+            required_percentage = constitution.quorum_percentage
+
+        attendance_percentage = (self.members_present / self.total_members) * 100
+        self.quorum_met = attendance_percentage >= required_percentage
+        return self.quorum_met
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "group_id": self.group_id,
+            "meeting_number": self.meeting_number,
+            "meeting_date": self.meeting_date.isoformat() if self.meeting_date else None,
+            "meeting_type": self.meeting_type,
+            "status": self.status,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "leadership": {
+                "chairperson": self.chairperson.name if self.chairperson else None,
+                "secretary": self.secretary.name if self.secretary else None,
+                "treasurer": self.treasurer.name if self.treasurer else None
+            },
+            "attendance": {
+                "total_members": self.total_members,
+                "members_present": self.members_present,
+                "quorum_met": self.quorum_met,
+                "attendance_percentage": round((self.members_present / self.total_members * 100), 2) if self.total_members > 0 else 0
+            },
+            "financial_summary": {
+                "total_savings_collected": float(self.total_savings_collected),
+                "loans_disbursed_count": self.loans_disbursed_count,
+                "loans_disbursed_amount": float(self.loans_disbursed_amount),
+                "fines_imposed_count": self.fines_imposed_count,
+                "fines_imposed_amount": float(self.fines_imposed_amount)
+            },
+            "next_meeting_date": self.next_meeting_date.isoformat() if self.next_meeting_date else None,
+            "created_date": self.created_date.isoformat() if self.created_date else None
+        }
+
+
+# ============================================================================
+# PROFESSIONAL ATTENDANCE MANAGEMENT MODELS
+# ============================================================================
+
+class AttendanceSession(db.Model):
+    """Professional attendance session management for meetings"""
+
+    __tablename__ = "attendance_sessions"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meetings.id'), nullable=False, unique=True)
+
+    # Session configuration
+    session_code = db.Column(db.String(10), nullable=False, unique=True)  # 6-digit code for manual entry
+    qr_code_data = db.Column(db.Text, nullable=False)  # QR code JSON data
+
+    # Location verification
+    meeting_latitude = db.Column(db.Numeric(10, 8), nullable=True)
+    meeting_longitude = db.Column(db.Numeric(11, 8), nullable=True)
+    geofence_radius_meters = db.Column(db.Integer, default=100, nullable=False)  # 100m default radius
+
+    # Session timing
+    check_in_opens = db.Column(db.DateTime, nullable=False)  # 30 mins before meeting
+    check_in_closes = db.Column(db.DateTime, nullable=False)  # 15 mins after start
+    late_threshold_minutes = db.Column(db.Integer, default=10, nullable=False)
+
+    # Session status
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    total_expected_attendees = db.Column(db.Integer, default=0, nullable=False)
+    total_checked_in = db.Column(db.Integer, default=0, nullable=False)
+
+    # Security features
+    requires_photo_verification = db.Column(db.Boolean, default=True, nullable=False)
+    requires_location_verification = db.Column(db.Boolean, default=True, nullable=False)
+    allows_remote_attendance = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Audit fields
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_date = db.Column(db.DateTime, default=func.now(), nullable=False)
+
+    # Relationships
+    meeting = db.relationship('Meeting', backref=db.backref('attendance_session', uselist=False))
+    creator = db.relationship('User', backref='created_attendance_sessions')
+
+    def __init__(self, meeting_id, created_by, meeting_latitude=None, meeting_longitude=None):
+        import uuid
+
+        self.meeting_id = meeting_id
+        self.created_by = created_by
+        self.meeting_latitude = meeting_latitude
+        self.meeting_longitude = meeting_longitude
+
+        # Generate unique session code
+        self.session_code = str(uuid.uuid4().int)[:6].upper()
+
+        # Generate QR code data
+        self.qr_code_data = json.dumps({
+            "session_id": None,  # Will be set after save
+            "meeting_id": meeting_id,
+            "session_code": self.session_code,
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+
+        # Set default timing (30 mins before to 15 mins after meeting start)
+        meeting = Meeting.query.get(meeting_id)
+        if meeting and meeting.start_time:
+            self.check_in_opens = meeting.start_time - datetime.timedelta(minutes=30)
+            self.check_in_closes = meeting.start_time + datetime.timedelta(minutes=15)
+        else:
+            # Default timing if meeting start time not set
+            now = datetime.datetime.now()
+            self.check_in_opens = now
+            self.check_in_closes = now + datetime.timedelta(hours=3)
+
+    def is_check_in_open(self):
+        """Check if check-in is currently open"""
+        now = datetime.datetime.now()
+        return self.is_active and self.check_in_opens <= now <= self.check_in_closes
+
+    def get_attendance_rate(self):
+        """Calculate attendance rate percentage"""
+        if self.total_expected_attendees == 0:
+            return 0.0
+        return round((self.total_checked_in / self.total_expected_attendees) * 100, 2)
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "meeting_id": self.meeting_id,
+            "session_code": self.session_code,
+            "qr_code_data": self.qr_code_data,
+            "location": {
+                "latitude": float(self.meeting_latitude) if self.meeting_latitude else None,
+                "longitude": float(self.meeting_longitude) if self.meeting_longitude else None,
+                "geofence_radius_meters": self.geofence_radius_meters
+            },
+            "timing": {
+                "check_in_opens": self.check_in_opens.isoformat() if self.check_in_opens else None,
+                "check_in_closes": self.check_in_closes.isoformat() if self.check_in_closes else None,
+                "late_threshold_minutes": self.late_threshold_minutes,
+                "is_check_in_open": self.is_check_in_open()
+            },
+            "verification_requirements": {
+                "requires_photo_verification": self.requires_photo_verification,
+                "requires_location_verification": self.requires_location_verification,
+                "allows_remote_attendance": self.allows_remote_attendance
+            },
+            "statistics": {
+                "total_expected_attendees": self.total_expected_attendees,
+                "total_checked_in": self.total_checked_in,
+                "attendance_rate": self.get_attendance_rate()
+            },
+            "is_active": self.is_active,
+            "created_date": self.created_date.isoformat() if self.created_date else None
+        }
+
+
+class AttendanceRecord(db.Model):
+    """Individual attendance records with professional verification"""
+
+    __tablename__ = "attendance_records"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('attendance_sessions.id'), nullable=False)
+    member_id = db.Column(db.Integer, db.ForeignKey('group_members.id'), nullable=False)
+
+    # Check-in details
+    check_in_method = db.Column(db.String(20), nullable=False)  # QR_CODE, MANUAL, BIOMETRIC, GPS_AUTO
+    attendance_status = db.Column(db.String(20), nullable=False, default='PRESENT')  # PRESENT, LATE, ABSENT, EXCUSED
+    check_in_time = db.Column(db.DateTime, default=func.now(), nullable=False)
+
+    # Location verification
+    location_latitude = db.Column(db.Numeric(10, 8), nullable=True)
+    location_longitude = db.Column(db.Numeric(11, 8), nullable=True)
+    location_accuracy_meters = db.Column(db.Integer, nullable=True)
+
+    # Verification data
+    photo_verification_url = db.Column(db.String(255), nullable=True)
+    device_info = db.Column(db.Text, nullable=True)  # JSON string with device details
+
+    # Participation tracking
+    participation_score = db.Column(db.Numeric(3, 1), default=0.0, nullable=False)  # 0.0 to 10.0
+    participated_in_discussions = db.Column(db.Boolean, default=False, nullable=False)
+    contributed_to_savings = db.Column(db.Boolean, default=False, nullable=False)
+    voted_on_decisions = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Excuse management
+    excuse_reason = db.Column(db.String(100), nullable=True)
+    excuse_details = db.Column(db.Text, nullable=True)
+    excuse_approved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    excuse_approved_date = db.Column(db.DateTime, nullable=True)
+
+    # Additional information
+    notes = db.Column(db.Text, nullable=True)
+
+    # Audit fields
+    recorded_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_date = db.Column(db.DateTime, default=func.now(), nullable=False)
+
+    # Relationships
+    session = db.relationship('AttendanceSession', backref='records')
+    member = db.relationship('GroupMember', backref='professional_attendance_records')
+    recorder = db.relationship('User', foreign_keys=[recorded_by], backref='recorded_attendance')
+    excuse_approver = db.relationship('User', foreign_keys=[excuse_approved_by], backref='approved_excuses')
+
+    def calculate_participation_score(self):
+        """Calculate participation score based on various factors"""
+        score = 0.0
+
+        # Base score for attendance
+        if self.attendance_status == 'PRESENT':
+            score += 4.0
+        elif self.attendance_status == 'LATE':
+            score += 2.0
+        elif self.attendance_status == 'EXCUSED':
+            score += 1.0
+
+        # Bonus for participation
+        if self.participated_in_discussions:
+            score += 2.0
+        if self.contributed_to_savings:
+            score += 2.0
+        if self.voted_on_decisions:
+            score += 2.0
+
+        # Cap at 10.0
+        self.participation_score = min(score, 10.0)
+        return self.participation_score
+
+    def is_location_verified(self, meeting_lat, meeting_lng, radius_meters):
+        """Check if location is within acceptable radius"""
+        if not self.location_latitude or not self.location_longitude:
+            return False
+
+        import math
+
+        # Convert to radians
+        lat1, lon1 = math.radians(float(meeting_lat)), math.radians(float(meeting_lng))
+        lat2, lon2 = math.radians(float(self.location_latitude)), math.radians(float(self.location_longitude))
+
+        # Haversine formula
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+
+        # Earth radius in meters
+        earth_radius = 6371000
+        distance = earth_radius * c
+
+        return distance <= radius_meters
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "member_id": self.member_id,
+            "member_name": f"{self.member.user.first_name} {self.member.user.last_name}" if self.member and self.member.user else "Unknown",
+            "check_in_method": self.check_in_method,
+            "attendance_status": self.attendance_status,
+            "check_in_time": self.check_in_time.isoformat() if self.check_in_time else None,
+            "location": {
+                "latitude": float(self.location_latitude) if self.location_latitude else None,
+                "longitude": float(self.location_longitude) if self.location_longitude else None,
+                "accuracy_meters": self.location_accuracy_meters
+            },
+            "verification": {
+                "photo_url": self.photo_verification_url,
+                "device_info": json.loads(self.device_info) if self.device_info else None
+            },
+            "participation": {
+                "score": float(self.participation_score),
+                "participated_in_discussions": self.participated_in_discussions,
+                "contributed_to_savings": self.contributed_to_savings,
+                "voted_on_decisions": self.voted_on_decisions
+            },
+            "excuse": {
+                "reason": self.excuse_reason,
+                "details": self.excuse_details,
+                "approved_by": self.excuse_approved_by,
+                "approved_date": self.excuse_approved_date.isoformat() if self.excuse_approved_date else None
+            },
+            "notes": self.notes,
+            "recorded_by": self.recorded_by,
+            "created_date": self.created_date.isoformat() if self.created_date else None
         }

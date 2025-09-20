@@ -48,6 +48,9 @@ def create_app(script_info=None):
     from project.api.savings_groups import savings_groups_blueprint
     from project.api.calendar import calendar_blueprint
     from project.api.monitoring import monitoring_blueprint
+    from project.api.meeting_api import meeting_blueprint
+    from project.api.attendance_api import attendance_blueprint
+    from project.api.business_rules_api import business_rules_blueprint
 
     app.register_blueprint(users_blueprint)
     app.register_blueprint(auth_blueprint)
@@ -56,6 +59,9 @@ def create_app(script_info=None):
     app.register_blueprint(savings_groups_blueprint)
     app.register_blueprint(calendar_blueprint)
     app.register_blueprint(monitoring_blueprint)
+    app.register_blueprint(meeting_blueprint)
+    app.register_blueprint(attendance_blueprint)
+    app.register_blueprint(business_rules_blueprint)
 
     # Initialize Aurora monitoring
     from project.monitoring import init_monitoring

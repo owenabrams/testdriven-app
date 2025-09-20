@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -21,6 +22,42 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 
 export default function RecentActivity() {
+  const navigate = useNavigate();
+
+  // Helper function to make group names clickable in descriptions
+  const renderDescription = (description) => {
+    // Simple regex to find group names (ending with "Group")
+    const groupNameRegex = /([\w\s]+Group)/g;
+    const parts = description.split(groupNameRegex);
+
+    return parts.map((part, index) => {
+      if (part.endsWith('Group')) {
+        return (
+          <Typography
+            key={index}
+            component="span"
+            sx={{
+              color: 'primary.main',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              fontWeight: 'medium',
+              '&:hover': {
+                textDecoration: 'underline'
+              }
+            }}
+            onClick={() => {
+              // For demo purposes, navigate to group 1. In real app, you'd map group names to IDs
+              const groupId = part.includes('Kampala') ? 1 : part.includes('Nakasero') ? 2 : 1;
+              navigate(`/groups/${groupId}`);
+            }}
+          >
+            {part}
+          </Typography>
+        );
+      }
+      return part;
+    });
+  };
   // Mock recent activity data - in real app, this would come from API
   const activities = [
     {
@@ -99,7 +136,7 @@ export default function RecentActivity() {
                 }
                 secondary={
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {activity.description}
+                    {renderDescription(activity.description)}
                   </Typography>
                 }
               />

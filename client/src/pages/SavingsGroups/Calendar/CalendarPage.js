@@ -47,7 +47,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, isSameDay, isSameMonth } from 'date-fns';
 
-import savingsGroupsAPI from '../../../services/savingsGroupsAPI';
+import { savingsGroupsAPI } from '../../../services/api';
+import EventDetailsModal from '../../../components/Calendar/EventDetailsModal';
 
 const CalendarPage = () => {
   const [events, setEvents] = useState([]);
@@ -97,11 +98,52 @@ const CalendarPage = () => {
   const loadFilterOptions = async () => {
     try {
       const response = await savingsGroupsAPI.getFilterOptions();
-      setFilterOptions(response);
+      setFilterOptions(response.data || response);
     } catch (err) {
       console.log('API not available for filter options, using mock data:', err.message);
-      // Fallback to mock data
-      const mockOptions = savingsGroupsAPI.getMockFilterOptions();
+      // Fallback to mock data - create basic options
+      const mockOptions = {
+        time_periods: [
+          { label: 'Today', value: 'today' },
+          { label: 'This Week', value: 'this_week' },
+          { label: 'This Month', value: 'this_month' },
+          { label: 'Last Month', value: 'last_month' },
+          { label: 'Custom Range', value: 'custom' }
+        ],
+        event_types: [
+          { label: '💰 Transactions', value: 'TRANSACTION' },
+          { label: '👥 Meetings', value: 'MEETING' },
+          { label: '🏦 Loans', value: 'LOAN' },
+          { label: '🎯 Campaigns', value: 'CAMPAIGN' },
+          { label: '⚠️ Fines', value: 'FINE' }
+        ],
+        groups: [],
+        regions: [],
+        districts: [],
+        parishes: [],
+        villages: [],
+        genders: [
+          { label: 'All Genders', value: 'ALL' },
+          { label: '👩 Women', value: 'F' },
+          { label: '👨 Men', value: 'M' }
+        ],
+        roles: [
+          { label: '👤 Member', value: 'MEMBER' },
+          { label: '👤 Officer', value: 'OFFICER' }
+        ],
+        fund_types: [
+          { label: '💰 Personal Savings', value: 'PERSONAL' },
+          { label: '👶 ECD Fund', value: 'ECD' },
+          { label: '🤝 Social Fund', value: 'SOCIAL' },
+          { label: '🎯 Target Savings', value: 'TARGET' }
+        ],
+        verification_statuses: [
+          { label: 'All Statuses', value: 'ALL' },
+          { label: '⏳ Pending', value: 'PENDING' },
+          { label: '✅ Verified', value: 'VERIFIED' },
+          { label: '❌ Rejected', value: 'REJECTED' }
+        ]
+      };
       setFilterOptions(mockOptions);
     }
   };
@@ -148,17 +190,14 @@ const CalendarPage = () => {
         });
 
         const response = await savingsGroupsAPI.getCalendarEvents(filters);
-        setEvents(response.events || []);
-        setFilterSummary(response.summary || {});
+        setEvents(response.data?.events || []);
+        setFilterSummary(response.data?.summary || {});
         setError(null);
       } catch (apiError) {
-        console.log('API not available, using mock data:', apiError.message);
-        
-        // Fallback to mock data
-        const mockData = savingsGroupsAPI.getMockCalendarEvents();
-        
-        // Apply client-side filtering to mock data
-        let filteredEvents = mockData.events;
+        console.error('Error fetching calendar events:', apiError.message);
+        setError('Failed to load calendar events. Please try again.');
+        setEvents([]);
+        setFilterSummary({});
         
         // Apply filters
         if (filters.gender && filters.gender !== 'ALL') {
@@ -273,7 +312,7 @@ const CalendarPage = () => {
 
   const handleEventClick = async (event) => {
     try {
-      const response = await savingsGroupsAPI.get(`/api/calendar/events/${event.id}`);
+      const response = await savingsGroupsAPI.getCalendarEventDetails(event.id);
       setSelectedEvent(response.data);
       setEventDetailsOpen(true);
     } catch (err) {
@@ -620,10 +659,27 @@ const CalendarPage = () => {
                 )}
               </Grid>
 
-              {/* Geographic Filters */}
+              {/* Groups & Geographic Filters */}
               <Grid item xs={12} md={3}>
-                <Typography variant="subtitle2" gutterBottom>Geographic</Typography>
-                
+                <Typography variant="subtitle2" gutterBottom>Groups & Location</Typography>
+
+                {filterOptions.groups && (
+                  <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                    <InputLabel>Groups</InputLabel>
+                    <Select
+                      multiple
+                      value={filters.group_ids}
+                      onChange={(e) => handleFilterChange('group_ids', e.target.value)}
+                    >
+                      {filterOptions.groups.map(group => (
+                        <MenuItem key={group.value} value={group.value}>
+                          {group.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+
                 {filterOptions.regions && (
                   <FormControl fullWidth size="small" sx={{ mb: 1 }}>
                     <InputLabel>Region</InputLabel>
@@ -640,7 +696,7 @@ const CalendarPage = () => {
                     </Select>
                   </FormControl>
                 )}
-                
+
                 {filterOptions.districts && (
                   <FormControl fullWidth size="small" sx={{ mb: 1 }}>
                     <InputLabel>District</InputLabel>
@@ -693,10 +749,25 @@ const CalendarPage = () => {
                 </FormControl>
               </Grid>
 
-              {/* Financial Filters */}
+              {/* Activity & Financial Filters */}
               <Grid item xs={12} md={3}>
-                <Typography variant="subtitle2" gutterBottom>Financial</Typography>
-                
+                <Typography variant="subtitle2" gutterBottom>Activities & Financial</Typography>
+
+                <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                  <InputLabel>Event Types</InputLabel>
+                  <Select
+                    multiple
+                    value={filters.event_types}
+                    onChange={(e) => handleFilterChange('event_types', e.target.value)}
+                  >
+                    {filterOptions.event_types?.map(eventType => (
+                      <MenuItem key={eventType.value} value={eventType.value}>
+                        {eventType.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
                 <FormControl fullWidth size="small" sx={{ mb: 1 }}>
                   <InputLabel>Fund Types</InputLabel>
                   <Select
@@ -711,7 +782,7 @@ const CalendarPage = () => {
                     ))}
                   </Select>
                 </FormControl>
-                
+
                 <Box sx={{ mb: 1 }}>
                   <Typography variant="caption">Amount Range (UGX)</Typography>
                   <Box display="flex" gap={1}>
@@ -825,90 +896,24 @@ const CalendarPage = () => {
           {renderCalendarGrid()}
         </Paper>
 
-        {/* Event Details Dialog */}
-        <Dialog 
-          open={eventDetailsOpen} 
+        {/* Enhanced Event Details Modal */}
+        <EventDetailsModal
+          open={eventDetailsOpen}
           onClose={() => setEventDetailsOpen(false)}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>
-            {selectedEvent && (
-              <Box display="flex" alignItems="center" gap={2}>
-                <Typography variant="h6">
-                  {getEventIcon(selectedEvent.event_type)} {selectedEvent.title}
-                </Typography>
-                <Chip 
-                  label={selectedEvent.verification_status} 
-                  color={selectedEvent.verification_status === 'VERIFIED' ? 'success' : 'warning'}
-                />
-              </Box>
-            )}
-          </DialogTitle>
-          
-          <DialogContent>
-            {selectedEvent && (
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" gutterBottom>Event Details</Typography>
-                  <Typography><strong>Date:</strong> {selectedEvent.event_date}</Typography>
-                  <Typography><strong>Group:</strong> {selectedEvent.group_name}</Typography>
-                  <Typography><strong>Type:</strong> {selectedEvent.event_type}</Typography>
-                  {selectedEvent.amount && (
-                    <Typography><strong>Amount:</strong> {selectedEvent.amount.toLocaleString()} UGX</Typography>
-                  )}
-                  {selectedEvent.fund_type && (
-                    <Typography><strong>Fund Type:</strong> {selectedEvent.fund_type}</Typography>
-                  )}
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" gutterBottom>Location & Demographics</Typography>
-                  <Typography><strong>Region:</strong> {selectedEvent.group_region}</Typography>
-                  <Typography><strong>District:</strong> {selectedEvent.group_district}</Typography>
-                  <Typography><strong>Parish:</strong> {selectedEvent.group_parish}</Typography>
-                  {selectedEvent.member_gender && (
-                    <Typography><strong>Member Gender:</strong> {selectedEvent.member_gender === 'F' ? 'Female' : 'Male'}</Typography>
-                  )}
-                  {selectedEvent.member_role && (
-                    <Typography><strong>Member Role:</strong> {selectedEvent.member_role}</Typography>
-                  )}
-                </Grid>
-                
-                {selectedEvent.additional_details && (
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" gutterBottom>Additional Details</Typography>
-                    {selectedEvent.additional_details.member_details && (
-                      <Box>
-                        <Typography><strong>Member:</strong> {selectedEvent.additional_details.member_details.name}</Typography>
-                        <Typography><strong>Phone:</strong> {selectedEvent.additional_details.member_details.phone}</Typography>
-                      </Box>
-                    )}
-                    {selectedEvent.additional_details.mobile_money_transaction_id && (
-                      <Typography><strong>Mobile Money ID:</strong> {selectedEvent.additional_details.mobile_money_transaction_id}</Typography>
-                    )}
-                    {selectedEvent.additional_details.balance_before !== null && (
-                      <Typography><strong>Balance Before:</strong> {selectedEvent.additional_details.balance_before?.toLocaleString()} UGX</Typography>
-                    )}
-                    {selectedEvent.additional_details.balance_after !== null && (
-                      <Typography><strong>Balance After:</strong> {selectedEvent.additional_details.balance_after?.toLocaleString()} UGX</Typography>
-                    )}
-                  </Grid>
-                )}
-                
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="textSecondary">
-                    {selectedEvent.description}
-                  </Typography>
-                </Grid>
-              </Grid>
-            )}
-          </DialogContent>
-          
-          <DialogActions>
-            <Button onClick={() => setEventDetailsOpen(false)}>Close</Button>
-          </DialogActions>
-        </Dialog>
+          event={selectedEvent}
+          onMemberClick={(memberId) => {
+            // Navigate to member details - implement based on your routing
+            console.log('Navigate to member:', memberId);
+          }}
+          onTransactionClick={(transactionId) => {
+            // Navigate to transaction details - implement based on your routing
+            console.log('Navigate to transaction:', transactionId);
+          }}
+          onGroupClick={(groupId) => {
+            // Navigate to group details - implement based on your routing
+            console.log('Navigate to group:', groupId);
+          }}
+        />
       </Box>
     </LocalizationProvider>
   );

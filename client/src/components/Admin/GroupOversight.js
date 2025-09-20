@@ -30,6 +30,7 @@ import {
   Tab,
   LinearProgress,
   Avatar,
+  MenuItem,
 } from '@mui/material';
 import {
   Search,
@@ -45,11 +46,14 @@ import {
   Security,
   TrendingUp,
   TrendingDown,
+  Phone,
+  Email,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import savingsGroupsAPI from '../../services/savingsGroupsAPI';
+import { savingsGroupsAPI } from '../../services/api';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -64,31 +68,52 @@ function TabPanel({ children, value, index, ...other }) {
 }
 
 export default function GroupOversight() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState('view'); // 'view', 'edit', 'audit'
   const [tab, setTab] = useState(0);
+  const [locationFilter, setLocationFilter] = useState('');
+  const [riskFilter, setRiskFilter] = useState('');
   const queryClient = useQueryClient();
+
+  console.log('🔍 GroupOversight component mounted');
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   // Fetch all groups
-  const { data: groups, isLoading } = useQuery(
+  const { data: groups, isLoading, error } = useQuery(
     'admin-group-oversight',
-    () => savingsGroupsAPI.getMockData(),
+    () => savingsGroupsAPI.getGroups(),
     {
-      select: (response) => response.groups || [],
+      select: (response) => {
+        console.log('🔍 Raw API response:', response);
+        const groupsData = response.data?.data?.groups || response.data?.groups || response.data?.data || [];
+        console.log('🔍 Extracted groups data:', groupsData);
+        return Array.isArray(groupsData) ? groupsData : [];
+      },
+      onError: (error) => {
+        console.error('❌ GroupOversight API Error:', error);
+        toast.error('Failed to load groups: ' + (error.response?.data?.message || error.message));
+      },
+      onSuccess: (data) => {
+        console.log('✅ GroupOversight API Success:', data);
+      }
     }
   );
 
   // Enhanced group data with risk indicators
   const enhancedGroups = React.useMemo(() => {
-    if (!groups) return [];
-    
+    console.log('🔍 Computing enhancedGroups, groups:', groups);
+    if (!groups || !Array.isArray(groups)) {
+      console.log('❌ Groups is not an array:', groups);
+      return [];
+    }
+
     return groups.map(group => {
-      const memberCount = group.member_count || 0;
-      const balance = group.total_balance || 0;
+      const memberCount = group.members_count || group.member_count || 0;
+      const balance = group.savings_balance || group.total_balance || 0;
       const activeLoans = group.active_loans_count || 0;
       
       // Calculate risk indicators
@@ -107,7 +132,7 @@ export default function GroupOversight() {
         riskLevel = 'HIGH';
         riskFactors.push('High loan ratio');
       }
-      if (group.status === 'FORMING') {
+      if (group.state === 'FORMING' || group.status === 'FORMING') {
         riskLevel = riskLevel === 'HIGH' ? 'HIGH' : 'MEDIUM';
         riskFactors.push('Still forming');
       }
@@ -121,12 +146,22 @@ export default function GroupOversight() {
     });
   }, [groups]);
 
-  // Filter groups
-  const filteredGroups = enhancedGroups.filter(group =>
-    group.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    group.district?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    group.parish?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter groups based on search term, location, and risk level
+  const filteredGroups = enhancedGroups.filter(group => {
+    const matchesSearch = group.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      group.district?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      group.parish?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      group.village?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesLocation = !locationFilter ||
+      group.district?.toLowerCase().includes(locationFilter.toLowerCase()) ||
+      group.parish?.toLowerCase().includes(locationFilter.toLowerCase()) ||
+      group.village?.toLowerCase().includes(locationFilter.toLowerCase());
+
+    const matchesRisk = !riskFilter || group.riskLevel === riskFilter;
+
+    return matchesSearch && matchesLocation && matchesRisk;
+  });
 
   // Update group mutation
   const updateGroupMutation = useMutation(
@@ -191,6 +226,16 @@ export default function GroupOversight() {
   if (isLoading) {
     return <Typography>Loading groups...</Typography>;
   }
+
+  if (error) {
+    return (
+      <Alert severity="error">
+        <Typography>Failed to load groups: {error.response?.data?.message || error.message}</Typography>
+      </Alert>
+    );
+  }
+
+  console.log('🔍 GroupOversight render - groups:', groups, 'enhancedGroups:', enhancedGroups);
 
   return (
     <Box>
@@ -262,21 +307,72 @@ export default function GroupOversight() {
         </Grid>
       </Grid>
 
-      {/* Search */}
-      <TextField
-        fullWidth
-        placeholder="Search groups by name, district, or parish..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search />
-            </InputAdornment>
-          ),
-        }}
-        sx={{ mb: 3, maxWidth: 600 }}
-      />
+      {/* Search and Filters */}
+      <Grid container spacing={2} mb={3}>
+        <Grid item xs={12} md={4}>
+          <TextField
+            fullWidth
+            placeholder="Search groups by name, district, parish, or village..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <TextField
+            fullWidth
+            select
+            label="Filter by Location"
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+          >
+            <MenuItem value="">All Locations</MenuItem>
+            <MenuItem value="kampala">Kampala</MenuItem>
+            <MenuItem value="wakiso">Wakiso</MenuItem>
+            <MenuItem value="jinja">Jinja</MenuItem>
+            <MenuItem value="nakivale">Nakivale Settlement</MenuItem>
+            <MenuItem value="kiryandongo">Kiryandongo Settlement</MenuItem>
+            <MenuItem value="central">Central Region</MenuItem>
+            <MenuItem value="eastern">Eastern Region</MenuItem>
+            <MenuItem value="western">Western Region</MenuItem>
+            <MenuItem value="northern">Northern Region</MenuItem>
+          </TextField>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <TextField
+            fullWidth
+            select
+            label="Filter by Risk Level"
+            value={riskFilter}
+            onChange={(e) => setRiskFilter(e.target.value)}
+          >
+            <MenuItem value="">All Risk Levels</MenuItem>
+            <MenuItem value="LOW">Low Risk</MenuItem>
+            <MenuItem value="MEDIUM">Medium Risk</MenuItem>
+            <MenuItem value="HIGH">High Risk</MenuItem>
+          </TextField>
+        </Grid>
+        <Grid item xs={12} md={2}>
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={() => {
+              setSearchTerm('');
+              setLocationFilter('');
+              setRiskFilter('');
+            }}
+            sx={{ height: '56px' }}
+          >
+            Clear Filters
+          </Button>
+        </Grid>
+      </Grid>
 
       {/* Groups Table */}
       <TableContainer component={Paper}>
@@ -301,7 +397,20 @@ export default function GroupOversight() {
                       {group.name?.charAt(0)}
                     </Avatar>
                     <Box>
-                      <Typography variant="body2" fontWeight="medium">
+                      <Typography
+                        variant="body2"
+                        fontWeight="medium"
+                        sx={{
+                          cursor: 'pointer',
+                          color: 'primary.main',
+                          textDecoration: 'none',
+                          '&:hover': {
+                            textDecoration: 'underline',
+                            color: 'primary.dark'
+                          }
+                        }}
+                        onClick={() => navigate(`/groups/${group.id}`)}
+                      >
                         {group.name}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -368,13 +477,15 @@ export default function GroupOversight() {
                   )}
                 </TableCell>
                 <TableCell>
-                  <IconButton
+                  <Button
                     size="small"
-                    onClick={() => handleOpenDialog(group, 'view')}
-                    title="View Details"
+                    variant="outlined"
+                    startIcon={<Visibility />}
+                    onClick={() => navigate(`/groups/${group.id}`)}
+                    sx={{ mr: 1 }}
                   >
-                    <Visibility />
-                  </IconButton>
+                    View Details
+                  </Button>
                   <IconButton
                     size="small"
                     onClick={() => handleOpenDialog(group, 'edit')}
@@ -399,9 +510,26 @@ export default function GroupOversight() {
       {/* Group Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>
-          {dialogType === 'view' && 'Group Details & Risk Assessment'}
-          {dialogType === 'edit' && 'Edit Group Settings'}
-          {dialogType === 'audit' && 'Group Audit Report'}
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">
+              {dialogType === 'view' && 'Group Details & Risk Assessment'}
+              {dialogType === 'edit' && 'Edit Group Settings'}
+              {dialogType === 'audit' && 'Group Audit Report'}
+            </Typography>
+            {dialogType === 'view' && selectedGroup && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Visibility />}
+                onClick={() => {
+                  handleCloseDialog();
+                  navigate(`/groups/${selectedGroup.id}`);
+                }}
+              >
+                View Full Profile
+              </Button>
+            )}
+          </Box>
         </DialogTitle>
         <DialogContent>
           {selectedGroup && (
@@ -429,6 +557,18 @@ export default function GroupOversight() {
                         <Typography variant="body1">
                           {selectedGroup.member_count || 0} / {selectedGroup.max_members || 30}
                         </Typography>
+                        <Button
+                          size="small"
+                          variant="text"
+                          startIcon={<People />}
+                          onClick={() => {
+                            handleCloseDialog();
+                            navigate(`/groups/${selectedGroup.id}`);
+                          }}
+                          sx={{ mt: 1 }}
+                        >
+                          View All Members
+                        </Button>
                       </Grid>
                       <Grid item xs={12} sm={6}>
                         <Typography variant="subtitle2" color="text.secondary">Formation Date</Typography>
@@ -444,8 +584,116 @@ export default function GroupOversight() {
                       </Grid>
                     </Grid>
                   </TabPanel>
-                  
+
                   <TabPanel value={tab} index={1}>
+                    {/* Members List */}
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="h6" gutterBottom>
+                        Group Members ({selectedGroup.member_count || 0})
+                      </Typography>
+
+                      {selectedGroup.members && selectedGroup.members.length > 0 ? (
+                        <TableContainer component={Paper} sx={{ mt: 2 }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Name</TableCell>
+                                <TableCell>Role</TableCell>
+                                <TableCell>Contact</TableCell>
+                                <TableCell>Gender</TableCell>
+                                <TableCell>Status</TableCell>
+                                <TableCell align="right">Savings</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {selectedGroup.members.map((member) => (
+                                <TableRow key={member.id}>
+                                  <TableCell>
+                                    <Box display="flex" alignItems="center">
+                                      <Avatar sx={{ mr: 2, bgcolor: 'primary.main', width: 32, height: 32 }}>
+                                        {member.name?.charAt(0)}
+                                      </Avatar>
+                                      <Box>
+                                        <Typography
+                                          variant="body2"
+                                          fontWeight="medium"
+                                          sx={{
+                                            cursor: 'pointer',
+                                            color: 'primary.main',
+                                            textDecoration: 'none',
+                                            '&:hover': {
+                                              textDecoration: 'underline',
+                                              color: 'primary.dark'
+                                            }
+                                          }}
+                                          onClick={() => {
+                                            handleCloseDialog();
+                                            navigate(`/members/${member.id}`);
+                                          }}
+                                        >
+                                          {member.name}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                          Joined {member.joined_date ? new Date(member.joined_date).toLocaleDateString() : 'N/A'}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      label={member.role || 'Member'}
+                                      size="small"
+                                      color={member.role === 'CHAIRPERSON' ? 'primary' : 'default'}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Box>
+                                      {member.phone && (
+                                        <Typography variant="body2" display="flex" alignItems="center">
+                                          <Phone sx={{ fontSize: 14, mr: 0.5 }} />
+                                          {member.phone}
+                                        </Typography>
+                                      )}
+                                      {member.email && (
+                                        <Typography variant="body2" display="flex" alignItems="center">
+                                          <Email sx={{ fontSize: 14, mr: 0.5 }} />
+                                          {member.email}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell>
+                                    {member.gender === 'F' ? 'Female' : member.gender === 'M' ? 'Male' : 'N/A'}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      label={member.is_active ? 'Active' : 'Inactive'}
+                                      size="small"
+                                      color={member.is_active ? 'success' : 'default'}
+                                    />
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Typography variant="body2" fontWeight="medium">
+                                      UGX {(member.share_balance || 0).toLocaleString()}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Total: UGX {(member.total_contributions || 0).toLocaleString()}
+                                    </Typography>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      ) : (
+                        <Alert severity="info" sx={{ mt: 2 }}>
+                          No member details available for this group.
+                        </Alert>
+                      )}
+                    </Box>
+                  </TabPanel>
+
+                  <TabPanel value={tab} index={2}>
                     <Box sx={{ mt: 2 }}>
                       <Box display="flex" alignItems="center" mb={2}>
                         <Chip

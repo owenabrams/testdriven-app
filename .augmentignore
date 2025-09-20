@@ -1,0 +1,32 @@
+# Node modules
+node_modules/
+*/node_modules/
+
+# Build directories
+build/
+dist/
+*/build/
+*/dist/
+
+# Cache directories
+.cache/
+*/.cache/
+
+# Logs
+*.log
+logs/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# GitHub workflows (can cause validation issues)
+.github/workflows/

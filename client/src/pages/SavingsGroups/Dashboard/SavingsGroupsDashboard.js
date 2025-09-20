@@ -25,12 +25,14 @@ import {
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useQuery } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import { savingsGroupsAPI } from '../../../services/api';
 
 export default function SavingsGroupsDashboard({ userRole, membershipData }) {
+  const navigate = useNavigate();
   // Fetch dashboard data based on user role
-  const { data: dashboardData, isLoading } = useQuery(
-    ['savings-dashboard', userRole, membershipData?.group_id],
+  const { data: dashboardData, isLoading, error } = useQuery(
+    ['savings-dashboard', userRole, membershipData?.member_id],
     () => {
       switch (userRole) {
         case 'super_admin':
@@ -38,12 +40,18 @@ export default function SavingsGroupsDashboard({ userRole, membershipData }) {
           return savingsGroupsAPI.getAdminDashboard();
         case 'group_officer':
         case 'group_member':
-          return savingsGroupsAPI.getMemberDashboard(membershipData?.member_id);
+          if (membershipData?.member_id) {
+            return savingsGroupsAPI.getMemberDashboard(membershipData.member_id);
+          }
+          return Promise.resolve({ data: { data: null } });
         default:
-          return Promise.resolve(null);
+          return Promise.resolve({ data: { data: null } });
       }
     },
-    { enabled: !!userRole }
+    {
+      enabled: !!userRole,
+      retry: 1
+    }
   );
 
   if (isLoading) {
@@ -53,6 +61,21 @@ export default function SavingsGroupsDashboard({ userRole, membershipData }) {
           Loading Dashboard...
         </Typography>
         <LinearProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Error Loading Dashboard
+          </Typography>
+          <Typography>
+            {error.message || 'Failed to load dashboard data. Please try again.'}
+          </Typography>
+        </Alert>
       </Box>
     );
   }
@@ -105,18 +128,14 @@ function getRoleTitle(userRole) {
 }
 
 function AdminDashboardContent({ dashboardData, userRole }) {
-  // Mock data for admin dashboard
+  // Use real data from API or fallback to defaults
+  const data = dashboardData?.data?.data;
   const adminStats = {
-    totalGroups: 12,
-    totalMembers: 156,
-    totalSavings: 45600000,
-    activeLoans: 8,
-    pendingTransactions: 23,
-    recentActivity: [
-      { id: 1, type: 'New Group', description: 'Entebbe Fishermen Cooperative registered', time: '2 hours ago' },
-      { id: 2, type: 'Large Transaction', description: 'UGX 500,000 deposit verified', time: '4 hours ago' },
-      { id: 3, type: 'Loan Approved', description: 'Mary Nambi - UGX 300,000 loan approved', time: '1 day ago' },
-    ]
+    totalGroups: data?.summary?.total_groups || 0,
+    totalMembers: data?.summary?.total_members || 0,
+    totalSavings: data?.summary?.total_savings || 0,
+    activeGroups: data?.summary?.active_groups || 0,
+    recentGroups: data?.recent_groups || []
   };
 
   return (
@@ -191,10 +210,10 @@ function AdminDashboardContent({ dashboardData, userRole }) {
               </Avatar>
               <Box>
                 <Typography color="textSecondary" gutterBottom>
-                  Pending Actions
+                  Recent Groups
                 </Typography>
                 <Typography variant="h5">
-                  {adminStats.pendingTransactions}
+                  {adminStats.recentGroups.length}
                 </Typography>
               </Box>
             </Box>
@@ -207,23 +226,52 @@ function AdminDashboardContent({ dashboardData, userRole }) {
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Recent System Activity
+              Recent Groups
             </Typography>
             <List>
-              {adminStats.recentActivity.map((activity, index) => (
-                <React.Fragment key={activity.id}>
-                  <ListItem>
+              {adminStats.recentGroups.length > 0 ? adminStats.recentGroups.map((group, index) => (
+                <React.Fragment key={group.id}>
+                  <ListItem
+                    button
+                    onClick={() => navigate(`/groups/${group.id}`)}
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  >
                     <ListItemIcon>
-                      <CheckCircleIcon color="success" />
+                      <GroupIcon color="primary" />
                     </ListItemIcon>
                     <ListItemText
-                      primary={activity.description}
-                      secondary={`${activity.type} • ${activity.time}`}
+                      primary={
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: 'primary.main',
+                            fontWeight: 'medium',
+                            '&:hover': {
+                              textDecoration: 'underline'
+                            }
+                          }}
+                        >
+                          {group.name}
+                        </Typography>
+                      }
+                      secondary={`${group.district}, ${group.parish} • ${group.state}`}
                     />
                   </ListItem>
-                  {index < adminStats.recentActivity.length - 1 && <Divider />}
+                  {index < adminStats.recentGroups.length - 1 && <Divider />}
                 </React.Fragment>
-              ))}
+              )) : (
+                <ListItem>
+                  <ListItemText
+                    primary="No recent groups"
+                    secondary="Groups will appear here as they are created"
+                  />
+                </ListItem>
+              )}
             </List>
           </CardContent>
         </Card>
@@ -258,21 +306,24 @@ function AdminDashboardContent({ dashboardData, userRole }) {
 }
 
 function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
-  // Mock member dashboard data
+  const navigate = useNavigate();
+  // Use real data from API or fallback to defaults
+  const data = dashboardData?.data?.data;
   const memberStats = {
-    personalSavings: 500000,
-    ecdFund: userRole === 'group_officer' ? 150000 : 0,
-    socialFund: userRole === 'group_officer' ? 75000 : 0,
-    totalContributions: userRole === 'group_officer' ? 725000 : 500000,
-    groupBalance: 1800000,
-    nextMeeting: '2024-12-15',
-    attendanceRate: 95,
-    recentTransactions: [
-      { id: 1, type: 'Personal Savings', amount: 50000, date: '2024-12-01', status: 'Verified' },
-      { id: 2, type: 'ECD Fund', amount: 25000, date: '2024-11-28', status: 'Verified' },
-      { id: 3, type: 'Social Fund', amount: 30000, date: '2024-11-21', status: 'Verified' },
-    ]
+    totalSavings: data?.total_savings || 0,
+    attendanceRate: data?.attendance_rate || 0,
+    recentTransactions: data?.recent_transactions || [],
+    savings: data?.savings || [],
+    member: data?.member || {},
+    group: data?.group || {}
   };
+
+  // Calculate savings by type
+  const savingsByType = memberStats.savings.reduce((acc, saving) => {
+    const typeName = saving.saving_type?.name || 'Unknown';
+    acc[typeName] = saving.current_balance || 0;
+    return acc;
+  }, {});
 
   return (
     <Grid container spacing={3}>
@@ -285,50 +336,27 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
             </Typography>
             
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={6} sm={3}>
-                <Box textAlign="center">
-                  <Typography variant="h5" color="primary">
-                    UGX {memberStats.personalSavings.toLocaleString()}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Personal Savings
-                  </Typography>
-                </Box>
-              </Grid>
-              
-              {userRole === 'group_officer' && (
-                <>
-                  <Grid item xs={6} sm={3}>
-                    <Box textAlign="center">
-                      <Typography variant="h5" color="secondary">
-                        UGX {memberStats.ecdFund.toLocaleString()}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        ECD Fund
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  
-                  <Grid item xs={6} sm={3}>
-                    <Box textAlign="center">
-                      <Typography variant="h5" color="success.main">
-                        UGX {memberStats.socialFund.toLocaleString()}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Social Fund
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </>
-              )}
-              
+              {/* Display savings by type */}
+              {Object.entries(savingsByType).map(([typeName, amount], index) => (
+                <Grid item xs={6} sm={3} key={typeName}>
+                  <Box textAlign="center">
+                    <Typography variant="h5" color={index === 0 ? "primary" : index === 1 ? "secondary" : "success.main"}>
+                      UGX {Number(amount).toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {typeName}
+                    </Typography>
+                  </Box>
+                </Grid>
+              ))}
+
               <Grid item xs={6} sm={3}>
                 <Box textAlign="center">
                   <Typography variant="h5" color="info.main">
-                    UGX {memberStats.totalContributions.toLocaleString()}
+                    UGX {Number(memberStats.totalSavings).toLocaleString()}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Total Contributions
+                    Total Savings
                   </Typography>
                 </Box>
               </Grid>
@@ -367,7 +395,20 @@ function MemberDashboardContent({ dashboardData, membershipData, userRole }) {
               <Typography variant="subtitle2" color="text.secondary">
                 Group Name
               </Typography>
-              <Typography variant="body1">
+              <Typography
+                variant="body1"
+                sx={{
+                  cursor: 'pointer',
+                  color: 'primary.main',
+                  textDecoration: 'none',
+                  fontWeight: 'medium',
+                  '&:hover': {
+                    textDecoration: 'underline',
+                    color: 'primary.dark'
+                  }
+                }}
+                onClick={() => navigate(`/groups/${membershipData?.group_id || 1}`)}
+              >
                 {membershipData?.group_name || "Kampala Women's Cooperative"}
               </Typography>
             </Box>

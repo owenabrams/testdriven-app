@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -44,7 +45,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import savingsGroupsAPI from '../../services/savingsGroupsAPI';
+import { savingsGroupsAPI } from '../../services/api';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 
@@ -61,6 +62,7 @@ function TabPanel({ children, value, index, ...other }) {
 }
 
 export default function MemberManagement() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,9 +75,9 @@ export default function MemberManagement() {
   // Fetch all groups to get members
   const { data: groups, isLoading } = useQuery(
     'admin-all-groups',
-    () => savingsGroupsAPI.getMockData(),
+    () => savingsGroupsAPI.getGroups(),
     {
-      select: (response) => response.groups || [],
+      select: (response) => response.data?.data || [],
     }
   );
 
@@ -229,7 +231,20 @@ export default function MemberManagement() {
                       {member.name?.charAt(0)}
                     </Avatar>
                     <Box>
-                      <Typography variant="body2" fontWeight="medium">
+                      <Typography
+                        variant="body2"
+                        fontWeight="medium"
+                        sx={{
+                          cursor: 'pointer',
+                          color: 'primary.main',
+                          textDecoration: 'none',
+                          '&:hover': {
+                            textDecoration: 'underline',
+                            color: 'primary.dark'
+                          }
+                        }}
+                        onClick={() => navigate(`/members/${member.id}`)}
+                      >
                         {member.name}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -239,7 +254,22 @@ export default function MemberManagement() {
                   </Box>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2">{member.groupName}</Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      cursor: 'pointer',
+                      color: 'primary.main',
+                      textDecoration: 'none',
+                      fontWeight: 'medium',
+                      '&:hover': {
+                        textDecoration: 'underline',
+                        color: 'primary.dark'
+                      }
+                    }}
+                    onClick={() => navigate(`/groups/${member.groupId || 1}`)}
+                  >
+                    {member.groupName}
+                  </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {member.groupDistrict}, {member.groupParish}
                   </Typography>

@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import savingsGroupsAPI from '../../services/savingsGroupsAPI';
+import { savingsGroupsAPI } from '../../services/api';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import CreateGroupDialog from '../../components/Groups/CreateGroupDialog';
 
@@ -41,9 +41,9 @@ export default function GroupsPage() {
 
   const { data: groups, isLoading, refetch } = useQuery(
     'savings-groups',
-    () => savingsGroupsAPI.getMockData(),
+    () => savingsGroupsAPI.getGroups(),
     {
-      select: (response) => response.groups || [],
+      select: (response) => response.data?.data || [],
     }
   );
 
