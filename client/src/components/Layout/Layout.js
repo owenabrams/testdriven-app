@@ -39,22 +39,22 @@ import { notificationsAPI } from '../../services/api';
 
 const drawerWidth = 240;
 
-// Simplified menu items - show all CRUD functions for our microfinance system
+// Enhanced menu items with latest improvements - MAIN CRUD LOCATION system
 const getMenuItemsForRole = (user) => {
-  // All users get access to the main microfinance features
+  // Latest menu structure with enhanced CRUD operations
   return [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Groups', icon: <GroupsIcon />, path: '/groups' },
-    { text: 'Members', icon: <AccountCircle />, path: '/members' },
-    { text: 'Meetings', icon: <CalendarIcon />, path: '/meetings' },
-    { text: 'Activities', icon: <CampaignIcon />, path: '/activities' },
-    { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
-    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-    { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
+    { text: '📊 Dashboard', subtitle: 'System overview', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: '👥 Groups', subtitle: '⭐ MAIN CRUD LOCATION', icon: <GroupsIcon />, path: '/groups' },
+    { text: '👤 Members', subtitle: 'Member management', icon: <AccountCircle />, path: '/members' },
+    { text: '📅 Meetings', subtitle: 'Meeting scheduling', icon: <CalendarIcon />, path: '/meetings' },
+    { text: '🎯 Activities', subtitle: 'Meeting activities', icon: <CampaignIcon />, path: '/activities' },
+    { text: '📅 Calendar', subtitle: 'Calendar view', icon: <CalendarIcon />, path: '/calendar' },
+    { text: '📈 Analytics', subtitle: 'Reports & export', icon: <AnalyticsIcon />, path: '/analytics' },
+    { text: '🔔 Notifications', subtitle: 'System notifications', icon: <NotificationsIcon />, path: '/notifications' },
     // Admin features for super_admin role
     ...(user?.role === 'super_admin' || user?.is_super_admin ? [
-      { text: 'System Admin', icon: <AdminIcon />, path: '/admin' },
-      { text: 'Data Export', icon: <AnalyticsIcon />, path: '/export' },
+      { text: '⚙️ System Admin', subtitle: 'Admin functions (no more errors!)', icon: <AdminIcon />, path: '/admin' },
+      { text: '📤 Data Export', subtitle: 'CSV/JSON export', icon: <AnalyticsIcon />, path: '/export' },
     ] : []),
   ];
 };
