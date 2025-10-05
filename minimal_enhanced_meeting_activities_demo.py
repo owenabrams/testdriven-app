@@ -18,6 +18,10 @@ from decimal import Decimal
 import hashlib
 import secrets
 import jwt
+
+# Load environment configuration
+from load_environment import load_environment
+config = load_environment()
 from functools import wraps
 
 app = Flask(__name__)
@@ -25,7 +29,7 @@ CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Configuration
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SECRET_KEY'] = config['secret_key']
 
 # Password hashing functions
 def hash_password(password):
@@ -43,12 +47,12 @@ def verify_password(password, hashed_password):
     password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
     return password_hash.hex() == stored_hash
 
-# Database setup - PostgreSQL
-DB_HOST = os.getenv('DB_HOST', 'localhost')
-DB_PORT = int(os.getenv('DB_PORT', '5432'))
-DB_NAME = os.getenv('DB_NAME', 'testdriven_dev')
-DB_USER = os.getenv('DB_USER', os.getenv('USER'))
-DB_PASSWORD = os.getenv('DB_PASSWORD', '')
+# Database setup - PostgreSQL (from smart environment loader)
+DB_HOST = config['db_host']
+DB_PORT = config['db_port']
+DB_NAME = config['db_name']
+DB_USER = config['db_user']
+DB_PASSWORD = config['db_password']
 
 def get_db_connection():
     """Get PostgreSQL database connection"""
@@ -4596,8 +4600,5 @@ if __name__ == '__main__':
     print("   • http://localhost:5001/api/reports/system-overview - System reports")
     print("   • http://localhost:5001/api/reports/group-dashboard/1 - Group dashboard")
     print()
-    # Use environment variable for port (production uses 5000, local uses 5001)
-    port = int(os.getenv('PORT', '5001'))
-    debug = os.getenv('FLASK_ENV', 'development') != 'production'
-
-    socketio.run(app, host='0.0.0.0', port=port, debug=debug)
+    # Use smart environment configuration
+    socketio.run(app, host='0.0.0.0', port=config['port'], debug=config['debug'])
