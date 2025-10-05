@@ -49,7 +49,7 @@ import {
   Phone,
   Email,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { savingsGroupsAPI } from '../../services/api';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -83,25 +83,23 @@ export default function GroupOversight() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   // Fetch all groups
-  const { data: groups, isLoading, error } = useQuery(
-    'admin-group-oversight',
-    () => savingsGroupsAPI.getGroups(),
-    {
-      select: (response) => {
-        console.log('🔍 Raw API response:', response);
-        const groupsData = response.data?.data?.groups || response.data?.groups || response.data?.data || [];
-        console.log('🔍 Extracted groups data:', groupsData);
-        return Array.isArray(groupsData) ? groupsData : [];
-      },
-      onError: (error) => {
-        console.error('❌ GroupOversight API Error:', error);
-        toast.error('Failed to load groups: ' + (error.response?.data?.message || error.message));
-      },
-      onSuccess: (data) => {
-        console.log('✅ GroupOversight API Success:', data);
-      }
+  const { data: groups, isLoading, error } = useQuery({
+    queryKey: ['admin-group-oversight'],
+    queryFn: () => savingsGroupsAPI.getGroups(),
+    select: (response) => {
+      console.log('🔍 Raw API response:', response);
+      const groupsData = response.data?.data?.groups || response.data?.groups || response.data?.data || [];
+      console.log('🔍 Extracted groups data:', groupsData);
+      return Array.isArray(groupsData) ? groupsData : [];
+    },
+    onError: (error) => {
+      console.error('❌ GroupOversight API Error:', error);
+      toast.error('Failed to load groups: ' + (error.response?.data?.message || error.message));
+    },
+    onSuccess: (data) => {
+      console.log('✅ GroupOversight API Success:', data);
     }
-  );
+  });
 
   // Enhanced group data with risk indicators
   const enhancedGroups = React.useMemo(() => {

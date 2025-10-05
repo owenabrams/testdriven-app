@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from 'react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationsAPI } from '../services/api';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
@@ -20,26 +20,22 @@ export const NotificationProvider = ({ children }) => {
   const [lastNotificationCheck, setLastNotificationCheck] = useState(Date.now());
 
   // Get notifications
-  const { data: notifications, isLoading } = useQuery(
-    ['notifications', user?.id],
-    () => notificationsAPI.getNotifications(user?.id),
-    {
-      select: (response) => response.data.data || [],
-      refetchInterval: 30000, // Refetch every 30 seconds
-      enabled: !!user?.id,
-    }
-  );
+  const { data: notifications, isLoading } = useQuery({
+    queryKey: ['notifications', user?.id],
+    queryFn: () => notificationsAPI.getNotifications(user?.id),
+    select: (response) => response.data?.notifications || [],
+    refetchInterval: 30000, // Refetch every 30 seconds
+    enabled: !!user?.id,
+  });
 
   // Get unread count
-  const { data: unreadCount } = useQuery(
-    ['notifications-count', user?.id],
-    () => notificationsAPI.getUnreadCount(user?.id),
-    {
-      select: (response) => response.data.data?.unread_count || 0,
-      refetchInterval: 30000,
-      enabled: !!user?.id,
-    }
-  );
+  const { data: unreadCount } = useQuery({
+    queryKey: ['notifications-count', user?.id],
+    queryFn: () => notificationsAPI.getUnreadCount(user?.id),
+    select: (response) => response.data?.unread_count || 0,
+    refetchInterval: 30000,
+    enabled: !!user?.id,
+  });
 
   // Check for new notifications and show toast
   useEffect(() => {

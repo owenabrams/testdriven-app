@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useReducer } from 'react';
-import { apiClient } from '../services/api';
+import { apiClient, authAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 const AuthContext = createContext();
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       // Verify token and get user info
       console.log('🔍 Verifying token...');
-      apiClient.get('/auth/status')
+      authAPI.getStatus()
         .then(response => {
           console.log('📡 Auth status response:', response.data);
           if (response.data.status === 'success') {
@@ -75,27 +75,36 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     console.log('🔐 Login attempt for:', email);
+    console.log('🔐 Password provided:', password ? 'Yes' : 'No');
+    console.log('🌐 API URL:', `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/login`);
+
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const response = await apiClient.post('/auth/login', {
-        email,
-        password,
-      });
+      console.log('🌐 Making API call...');
+      const response = await authAPI.login(email, password);
 
-      console.log('📡 Login response:', response.data);
+      console.log('📡 Login response received:', response);
+      console.log('📡 Login response data:', response.data);
+      console.log('📡 Response status:', response.status);
 
-      if (response.data.status === 'success') {
+      if (response.data && response.data.status === 'success') {
         const { auth_token, user: userData } = response.data;
         console.log('✅ Login successful, storing token and user data');
+        console.log('🔑 Token received:', auth_token ? 'Yes' : 'No');
+        console.log('👤 User data received:', userData ? 'Yes' : 'No');
+
         localStorage.setItem('auth_token', auth_token);
-        
+
         // If user data is not in response, fetch it
         if (userData) {
+          console.log('👤 Using provided user data:', userData);
           dispatch({ type: 'LOGIN_SUCCESS', payload: userData });
         } else {
+          console.log('👤 Fetching user data with token...');
           // Fetch user data using the token
           try {
-            const userResponse = await apiClient.get('/auth/status');
+            const userResponse = await authAPI.getStatus();
+            console.log('👤 User data response:', userResponse.data);
             if (userResponse.data.status === 'success') {
               dispatch({ type: 'LOGIN_SUCCESS', payload: userResponse.data.data });
             }
@@ -104,29 +113,40 @@ export const AuthProvider = ({ children }) => {
             dispatch({ type: 'LOGIN_SUCCESS', payload: { email } }); // Fallback
           }
         }
-        
+
         toast.success('Login successful!');
         return { success: true };
       } else {
-        const message = response.data.message || 'Login failed';
+        const message = response.data?.message || 'Login failed - invalid response';
         console.log('❌ Login failed:', message);
+        console.log('❌ Full response:', response.data);
         dispatch({ type: 'AUTH_ERROR', payload: message });
         toast.error(message);
         return { success: false, message };
       }
     } catch (error) {
-      const message = error.response?.data?.message || 'Login failed';
-      console.error('❌ Login error:', error);
+      const message = error.response?.data?.message || error.message || 'Network error - check if backend is running';
+      console.error('❌ Login error details:', {
+        error: error,
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method
+      });
       dispatch({ type: 'AUTH_ERROR', payload: message });
       toast.error(message);
       return { success: false, message };
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
   const register = async (userData) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const response = await apiClient.post('/auth/register', userData);
+      const response = await authAPI.register(userData);
 
       if (response.data.status === 'success') {
         const { auth_token, user: newUser } = response.data;

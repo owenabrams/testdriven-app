@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../../services/api';
 import {
   Box,
   Grid,
@@ -32,8 +34,13 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
   Checkbox,
   FormGroup,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Groups,
@@ -61,6 +68,7 @@ import {
   Today,
   ViewList,
   ViewModule,
+  Add,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -79,9 +87,24 @@ function TabPanel({ children, value, index, ...other }) {
 }
 
 export default function GroupProfile() {
-  const { groupId } = useParams();
+  const { id: groupId } = useParams();
   const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
+
+  // Dialog states for CRUD operations
+  const [memberDialogOpen, setMemberDialogOpen] = useState(false);
+  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
+  const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const [constitutionDialogOpen, setConstitutionDialogOpen] = useState(false);
+  const [votingDialogOpen, setVotingDialogOpen] = useState(false);
+  const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
+  const [savingCycleDialogOpen, setSavingCycleDialogOpen] = useState(false);
+  const [igaDialogOpen, setIgaDialogOpen] = useState(false);
+  const [calendarDialogOpen, setCalendarDialogOpen] = useState(false);
+
+  // Edit states
+  const [editingItem, setEditingItem] = useState(null);
+  const [editMode, setEditMode] = useState(false);
 
   // Calendar state management
   const [calendarFilters, setCalendarFilters] = useState({
@@ -102,9 +125,249 @@ export default function GroupProfile() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [activityDetailOpen, setActivityDetailOpen] = useState(false);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
 
-  // Mock group data - replace with real API call
-  const groupData = {
+  // Real API calls using React Query
+  const { data: groupData, isLoading: groupLoading, error: groupError } = useQuery({
+    queryKey: ['group', groupId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/groups/${groupId}`);
+      const rawGroup = response.data.group;
+
+      // Transform API data to match component expectations
+      return {
+        ...rawGroup,
+        // Add missing nested structures that component expects
+        settings: {
+          meeting_frequency: `${rawGroup.meeting_frequency || 'WEEKLY'} on ${rawGroup.meeting_day || 'SATURDAY'}`,
+          cycle_period_months: rawGroup.cycle_duration_months || 12,
+          max_members: rawGroup.max_members || 25,
+          loan_interest_rate: 5, // Default rate
+          fine_amount: 5000, // Default fine
+          ecd_fund_enabled: true,
+          target_fund_enabled: true,
+        },
+        // Add empty arrays for data that might not exist yet
+        members: [],
+        votes: [],
+        saving_cycles: [],
+        iga_activities: [],
+        financial_records: {
+          outstanding_loans: rawGroup.loan_fund_balance || 0,
+          total_fines: 0,
+          ecd_fund: 0,
+          recent_transactions: []
+        },
+        registration: {
+          registration_date: rawGroup.registration_date || rawGroup.created_date,
+          registration_number: rawGroup.registration_number || 'N/A',
+          registration_authority: rawGroup.registration_authority || 'N/A',
+          documents: []
+        },
+        // Map existing fields
+        current_cycle: rawGroup.current_cycle_number || 1,
+        cycle_period_months: rawGroup.cycle_duration_months || 12,
+        total_savings: rawGroup.savings_balance || 0,
+        total_loans: rawGroup.loan_fund_balance || 0,
+        status: rawGroup.state || 'ACTIVE'
+      };
+    },
+    enabled: !!groupId, // Only run query when groupId is available
+  });
+
+  const { data: membersData, isLoading: membersLoading } = useQuery({
+    queryKey: ['members', groupId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/members/?group_id=${groupId}`);
+      return response.data.members;
+    },
+    enabled: !!groupId,
+  });
+
+  const { data: activitiesData, isLoading: activitiesLoading } = useQuery({
+    queryKey: ['activities', groupId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/meeting-activities/?group_id=${groupId}`);
+      return response.data.activities || [];
+    },
+    enabled: !!groupId,
+  });
+
+  // Fetch additional tab data
+  const { data: constitutionData } = useQuery({
+    queryKey: ['constitution', groupId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/groups/${groupId}/constitution`);
+      return response.data.constitution_documents || [];
+    },
+    enabled: !!groupId,
+  });
+
+  const { data: votingData } = useQuery({
+    queryKey: ['voting', groupId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/groups/${groupId}/voting-sessions`);
+      return response.data.voting_sessions || [];
+    },
+    enabled: !!groupId,
+  });
+
+  const { data: trainingsData } = useQuery({
+    queryKey: ['trainings', groupId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/groups/${groupId}/trainings`);
+      return response.data.trainings || [];
+    },
+    enabled: !!groupId,
+  });
+
+  const { data: savingCyclesData } = useQuery({
+    queryKey: ['saving-cycles', groupId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/groups/${groupId}/saving-cycles`);
+      return response.data.saving_cycles || [];
+    },
+    enabled: !!groupId,
+  });
+
+  const { data: igaActivitiesData } = useQuery({
+    queryKey: ['iga-activities', groupId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/groups/${groupId}/iga-activities`);
+      return response.data.iga_activities || [];
+    },
+    enabled: !!groupId,
+  });
+
+  // React Query mutations for CRUD operations
+  // Member CRUD mutations
+  const createMemberMutation = useMutation({
+    mutationFn: async (memberData) => {
+      console.log('Creating member with data:', memberData); // Debug log
+      const response = await apiClient.post('/members/', { ...memberData, group_id: groupId });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log('Member created successfully:', data); // Debug log
+      // Invalidate all relevant queries to refresh the data
+      queryClient.invalidateQueries(['members', groupId]);
+      queryClient.invalidateQueries(['group', groupId]);
+      queryClient.invalidateQueries(['activities', groupId]);
+      setMemberDialogOpen(false);
+      setEditingItem(null);
+      // Show success message
+      alert('Member added successfully!');
+    },
+    onError: (error) => {
+      console.error('Error creating member:', error); // Debug log
+      alert(`Failed to add member: ${error.response?.data?.error || error.message}`);
+    },
+  });
+
+  const updateMemberMutation = useMutation({
+    mutationFn: async ({ memberId, memberData }) => {
+      console.log('Updating member with data:', { memberId, memberData }); // Debug log
+      const response = await apiClient.put(`/members/${memberId}`, memberData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log('Member updated successfully:', data); // Debug log
+      // Invalidate all relevant queries to refresh the data
+      queryClient.invalidateQueries(['members', groupId]);
+      queryClient.invalidateQueries(['group', groupId]);
+      queryClient.invalidateQueries(['activities', groupId]);
+      setMemberDialogOpen(false);
+      setEditingItem(null);
+      // Show success message
+      alert('Member updated successfully!');
+    },
+    onError: (error) => {
+      console.error('Error updating member:', error); // Debug log
+      alert(`Failed to update member: ${error.response?.data?.error || error.message}`);
+    },
+  });
+
+  const deleteMemberMutation = useMutation({
+    mutationFn: async (memberId) => {
+      const response = await apiClient.delete(`/members/${memberId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['members', groupId]);
+      queryClient.invalidateQueries(['group', groupId]);
+    },
+  });
+
+  // Meeting CRUD mutations
+  const createMeetingMutation = useMutation({
+    mutationFn: async (meetingData) => {
+      const response = await apiClient.post('/meetings/', { ...meetingData, group_id: groupId });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['activities', groupId]);
+      setMeetingDialogOpen(false);
+      setEditingItem(null);
+    },
+  });
+
+  // Activity CRUD mutations
+  const createActivityMutation = useMutation({
+    mutationFn: async (activityData) => {
+      const response = await apiClient.post('/meeting-activities/', { ...activityData, group_id: groupId });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['activities', groupId]);
+      setActivityDialogOpen(false);
+      setEditingItem(null);
+    },
+  });
+
+  const updateActivityMutation = useMutation({
+    mutationFn: async ({ activityId, activityData }) => {
+      const response = await apiClient.put(`/meeting-activities/${activityId}`, activityData);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['activities', groupId]);
+      setActivityDialogOpen(false);
+      setEditingItem(null);
+    },
+  });
+
+  const deleteActivityMutation = useMutation({
+    mutationFn: async (activityId) => {
+      const response = await apiClient.delete(`/meeting-activities/${activityId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['activities', groupId]);
+    },
+  });
+
+  // Loading state
+  if (groupLoading || membersLoading || activitiesLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Error state
+  if (groupError) {
+    return (
+      <Box p={3}>
+        <Alert severity="error">
+          Failed to load group data: {groupError.message}
+        </Alert>
+      </Box>
+    );
+  }
+
+  // Use real data or fallback to mock structure
+  const displayGroupData = groupData || {
     id: groupId || 1,
     name: "Kampala Women's Cooperative",
     district: "Kampala",
@@ -344,12 +607,49 @@ export default function GroupProfile() {
   };
 
   const getFilteredActivities = () => {
-    return groupData.calendar_activities.filter(activity => {
-      const typeMatch = calendarFilters.activityTypes[activity.type];
-      const statusMatch = calendarFilters.statuses[activity.status];
-      return typeMatch && statusMatch;
-    });
+    const activities = activitiesData || [];
+    return activities
+      .map(activity => ({
+        // Transform backend data to frontend format
+        id: activity.id,
+        title: activity.description || `${activity.activity_type.replace('_', ' ')} Activity`,
+        description: activity.description || '',
+        date: activity.meeting_date || activity.created_date,
+        time: '14:00', // Default time since backend doesn't provide it
+        location: activity.location || 'Community Center',
+        attendees: 15, // Default since backend doesn't provide it
+        status: activity.status || 'completed',
+        activity_type: activity.activity_type,
+        amount: activity.amount
+      }))
+      .filter(activity => {
+        // Transform activity types to match filter structure
+        const activityType = activity.activity_type === 'savings_collection' ? 'meeting' : 'meeting';
+        const typeMatch = calendarFilters.activityTypes[activityType] || true;
+        const statusMatch = calendarFilters.statuses[activity.status] || true;
+        return typeMatch && statusMatch;
+      });
   };
+
+  // Transform members data for display
+  const displayMembers = membersData || [];
+
+  // Calculate financial summaries from real data
+  const calculateFinancialSummary = () => {
+    if (!activitiesData) return { total_savings: 0, total_loans: 0 };
+
+    const savings = activitiesData
+      .filter(a => a.activity_type === 'savings_collection')
+      .reduce((sum, a) => sum + parseFloat(a.amount || 0), 0);
+
+    const loans = activitiesData
+      .filter(a => a.activity_type === 'loan_disbursement')
+      .reduce((sum, a) => sum + parseFloat(a.amount || 0), 0);
+
+    return { total_savings: savings, total_loans: loans };
+  };
+
+  const financialSummary = calculateFinancialSummary();
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-UG', {
@@ -379,10 +679,10 @@ export default function GroupProfile() {
             </Avatar>
             <Box>
               <Typography variant="h4" component="h1">
-                {groupData.name}
+                {displayGroupData.name}
               </Typography>
               <Typography variant="subtitle1" color="text.secondary">
-                {groupData.district} • {groupData.parish} • {groupData.village}
+                {displayGroupData.district || displayGroupData.location} • {displayGroupData.parish} • {displayGroupData.village}
               </Typography>
             </Box>
           </Box>
@@ -413,9 +713,9 @@ export default function GroupProfile() {
                     <Typography color="text.secondary" gutterBottom>
                       Status
                     </Typography>
-                    <Chip 
-                      label={groupData.status} 
-                      color={groupData.status === 'ACTIVE' ? 'success' : 'default'}
+                    <Chip
+                      label={displayGroupData.state || displayGroupData.status}
+                      color={(displayGroupData.state || displayGroupData.status) === 'ACTIVE' ? 'success' : 'default'}
                       size="small"
                     />
                   </Box>
@@ -433,7 +733,7 @@ export default function GroupProfile() {
                       Members
                     </Typography>
                     <Typography variant="h6">
-                      {groupData.members_count}/{groupData.max_members}
+                      {displayMembers.length}/{displayGroupData.max_members}
                     </Typography>
                   </Box>
                   <Person color="primary" />
@@ -450,7 +750,7 @@ export default function GroupProfile() {
                       Total Savings
                     </Typography>
                     <Typography variant="h6">
-                      {formatCurrency(groupData.total_savings)}
+                      {formatCurrency(displayGroupData.savings_balance || financialSummary.total_savings)}
                     </Typography>
                   </Box>
                   <AccountBalance color="primary" />
@@ -468,11 +768,11 @@ export default function GroupProfile() {
                     </Typography>
                     <Box display="flex" alignItems="center">
                       <Typography variant="h6" sx={{ mr: 1 }}>
-                        {groupData.health_score}%
+                        {displayGroupData.credit_score || 85}%
                       </Typography>
-                      <Chip 
-                        label={groupData.risk_level} 
-                        color={getRiskColor(groupData.risk_level)}
+                      <Chip
+                        label={displayGroupData.risk_level || 'LOW'}
+                        color={getRiskColor(displayGroupData.risk_level || 'LOW')}
                         size="small"
                       />
                     </Box>
@@ -491,6 +791,7 @@ export default function GroupProfile() {
           <Tabs value={tabValue} onChange={handleTabChange} aria-label="group profile tabs" variant="scrollable" scrollButtons="auto">
             <Tab label="Overview" icon={<Visibility />} />
             <Tab label="Members" icon={<Groups />} />
+            <Tab label="Activities" icon={<TrendingUp />} />
             <Tab label="Constitution" icon={<MenuBook />} />
             <Tab label="Registration" icon={<Description />} />
             <Tab label="Trainings" icon={<School />} />
@@ -585,9 +886,17 @@ export default function GroupProfile() {
           <Box>
             <Box display="flex" justifyContent="between" alignItems="center" mb={2}>
               <Typography variant="h6">
-                Group Members ({groupData.members_count})
+                Group Members ({displayMembers.length})
               </Typography>
-              <Button variant="contained" startIcon={<Person />}>
+              <Button
+                variant="contained"
+                startIcon={<Person />}
+                onClick={() => {
+                  setEditingItem(null);
+                  setEditMode(false);
+                  setMemberDialogOpen(true);
+                }}
+              >
                 Add Member
               </Button>
             </Box>
@@ -605,7 +914,7 @@ export default function GroupProfile() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {groupData.members.map((member) => (
+                  {displayMembers.map((member) => (
                     <TableRow key={member.id}>
                       <TableCell>
                         <Box display="flex" alignItems="center">
@@ -637,15 +946,25 @@ export default function GroupProfile() {
                           color={member.role === 'CHAIRPERSON' ? 'primary' : 'default'}
                         />
                       </TableCell>
-                      <TableCell>{member.gender === 'F' ? 'Female' : 'Male'}</TableCell>
+                      <TableCell>{member.gender === 'FEMALE' ? 'Female' : 'Male'}</TableCell>
                       <TableCell>{member.phone}</TableCell>
-                      <TableCell align="right">{formatCurrency(member.savings)}</TableCell>
+                      <TableCell align="right">{formatCurrency(member.share_balance || 0)}</TableCell>
                       <TableCell align="right">{formatCurrency(member.loans)}</TableCell>
                       <TableCell>
-                        <IconButton size="small">
+                        <IconButton
+                          size="small"
+                          onClick={() => navigate(`/members/${member.id}`)}
+                        >
                           <Visibility />
                         </IconButton>
-                        <IconButton size="small">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setEditingItem(member);
+                            setEditMode(true);
+                            setMemberDialogOpen(true);
+                          }}
+                        >
                           <Edit />
                         </IconButton>
                       </TableCell>
@@ -658,42 +977,141 @@ export default function GroupProfile() {
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
+          {/* Activities - Meeting Activities with Individual Member Tracking */}
+          <Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+              <Typography variant="h6">
+                📊 Meeting Activities ({activitiesData?.length || 0})
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => {
+                  // Navigate to create activity - could be enhanced
+                  console.log('Add activity clicked');
+                  alert('Navigate to a meeting to add activities with member participation tracking');
+                }}
+              >
+                Add Activity
+              </Button>
+            </Box>
+
+            {activitiesLoading ? (
+              <CircularProgress />
+            ) : activitiesData && activitiesData.length > 0 ? (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Activity Type</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell align="center">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {activitiesData.map((activity) => (
+                      <TableRow key={activity.id}>
+                        <TableCell>
+                          <Box display="flex" alignItems="center">
+                            <TrendingUp sx={{ mr: 1, color: 'primary.main' }} />
+                            <Typography variant="body2">
+                              {activity.activity_type?.replace('_', ' ').toUpperCase() || 'Activity'}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{activity.description}</TableCell>
+                        <TableCell align="right">
+                          UGX {parseFloat(activity.amount || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={activity.status || 'completed'}
+                            color={activity.status === 'completed' ? 'success' : 'warning'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {activity.meeting_date || activity.created_date ?
+                            new Date(activity.meeting_date || activity.created_date).toLocaleDateString() :
+                            'N/A'
+                          }
+                        </TableCell>
+                        <TableCell align="center">
+                          <Button
+                            size="small"
+                            onClick={() => {
+                              console.log('View activity details:', activity.id);
+                              alert(`Activity: ${activity.description}\nAmount: UGX ${parseFloat(activity.amount || 0).toLocaleString()}\nType: ${activity.activity_type}`);
+                            }}
+                          >
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Alert severity="info">
+                No activities found for this group. Activities are created during meetings with individual member participation tracking.
+              </Alert>
+            )}
+          </Box>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
           {/* Constitution & Governance */}
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Constitution Details
-                  </Typography>
-                  <List>
-                    <ListItem>
-                      <ListItemText
-                        primary="Adopted Date"
-                        secondary={new Date(groupData.constitution.adopted_date).toLocaleDateString()}
-                      />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText
-                        primary="Last Updated"
-                        secondary={new Date(groupData.constitution.last_updated).toLocaleDateString()}
-                      />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText
-                        primary="Version"
-                        secondary={groupData.constitution.version}
-                      />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText
-                        primary="Articles Count"
-                        secondary={`${groupData.constitution.articles_count} articles`}
-                      />
-                    </ListItem>
-                  </List>
-                  <Button variant="outlined" startIcon={<MenuBook />} sx={{ mt: 2 }}>
-                    View Full Constitution
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="h6">
+                      Constitution Documents ({constitutionData?.length || 0})
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<Upload />}
+                      size="small"
+                      onClick={() => {
+                        setEditingItem(null);
+                        setEditMode(false);
+                        setConstitutionDialogOpen(true);
+                      }}
+                    >
+                      Upload New Version
+                    </Button>
+                  </Box>
+
+                  {constitutionData && constitutionData.length > 0 ? (
+                    <List>
+                      {constitutionData.slice(0, 3).map((doc) => (
+                        <ListItem key={doc.id}>
+                          <ListItemIcon>
+                            <MenuBook />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={doc.title}
+                            secondary={`Version ${doc.version_number} • ${new Date(doc.upload_date).toLocaleDateString()}`}
+                          />
+                          <IconButton size="small">
+                            <Visibility />
+                          </IconButton>
+                        </ListItem>
+                      ))}
+                    </List>
+                  ) : (
+                    <Alert severity="info">
+                      No constitution documents uploaded yet.
+                    </Alert>
+                  )}
+
+                  <Button variant="outlined" startIcon={<MenuBook />} sx={{ mt: 2 }} fullWidth>
+                    View All Documents
                   </Button>
                 </CardContent>
               </Card>
@@ -843,14 +1261,22 @@ export default function GroupProfile() {
           </Box>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={4}>
+        <TabPanel value={tabValue} index={5}>
           {/* Trainings & Capacity Building */}
           <Box>
             <Box display="flex" justifyContent="between" alignItems="center" mb={2}>
               <Typography variant="h6">
-                Training History ({groupData.trainings.length})
+                Training History ({trainingsData?.length || 0})
               </Typography>
-              <Button variant="contained" startIcon={<School />}>
+              <Button
+                variant="contained"
+                startIcon={<School />}
+                onClick={() => {
+                  setEditingItem(null);
+                  setEditMode(false);
+                  setTrainingDialogOpen(true);
+                }}
+              >
                 Schedule Training
               </Button>
             </Box>
@@ -866,39 +1292,57 @@ export default function GroupProfile() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {groupData.trainings.map((training) => (
-                    <TableRow key={training.id}>
-                      <TableCell>{training.title}</TableCell>
-                      <TableCell>{new Date(training.date).toLocaleDateString()}</TableCell>
-                      <TableCell>{training.participants} members</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={training.status}
-                          color={training.status === 'COMPLETED' ? 'success' : 'default'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton size="small">
-                          <Visibility />
-                        </IconButton>
+                  {trainingsData && trainingsData.length > 0 ? (
+                    trainingsData.map((training) => (
+                      <TableRow key={training.id}>
+                        <TableCell>{training.topic}</TableCell>
+                        <TableCell>{new Date(training.training_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{training.attended_count || 0} / {training.total_participants || 0} members</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={training.status}
+                            color={training.status === 'COMPLETED' ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <IconButton size="small">
+                            <Visibility />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        <Typography variant="body2" color="text.secondary">
+                          No trainings scheduled yet
+                        </Typography>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
           </Box>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={5}>
+        <TabPanel value={tabValue} index={6}>
           {/* Voting History */}
           <Box>
             <Box display="flex" justifyContent="between" alignItems="center" mb={2}>
               <Typography variant="h6">
                 Voting & Decision History ({groupData.votes.length})
               </Typography>
-              <Button variant="contained" startIcon={<HowToVote />}>
+              <Button
+                variant="contained"
+                startIcon={<HowToVote />}
+                onClick={() => {
+                  setEditingItem(null);
+                  setEditMode(false);
+                  setVotingDialogOpen(true);
+                }}
+              >
                 New Vote
               </Button>
             </Box>
@@ -939,7 +1383,7 @@ export default function GroupProfile() {
           </Box>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={6}>
+        <TabPanel value={tabValue} index={7}>
           {/* Financial Records - Cashbook & Ledgers */}
           <Grid container spacing={3}>
             <Grid item xs={12} md={4}>
@@ -1017,14 +1461,22 @@ export default function GroupProfile() {
           </Grid>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={7}>
+        <TabPanel value={tabValue} index={8}>
           {/* Saving Cycles Management */}
           <Box>
             <Box display="flex" justifyContent="between" alignItems="center" mb={2}>
               <Typography variant="h6">
                 Saving Cycles History ({groupData.saving_cycles.length})
               </Typography>
-              <Button variant="contained" startIcon={<CalendarToday />}>
+              <Button
+                variant="contained"
+                startIcon={<CalendarToday />}
+                onClick={() => {
+                  setEditingItem(null);
+                  setEditMode(false);
+                  setSavingCycleDialogOpen(true);
+                }}
+              >
                 Start New Cycle
               </Button>
             </Box>
@@ -1080,14 +1532,22 @@ export default function GroupProfile() {
           </Box>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={8}>
+        <TabPanel value={tabValue} index={9}>
           {/* Income Generating Activities */}
           <Box>
             <Box display="flex" justifyContent="between" alignItems="center" mb={2}>
               <Typography variant="h6">
                 Income Generating Activities ({groupData.iga_activities.length})
               </Typography>
-              <Button variant="contained" startIcon={<Business />}>
+              <Button
+                variant="contained"
+                startIcon={<Business />}
+                onClick={() => {
+                  setEditingItem(null);
+                  setEditMode(false);
+                  setIgaDialogOpen(true);
+                }}
+              >
                 Add New IGA
               </Button>
             </Box>
@@ -1146,7 +1606,7 @@ export default function GroupProfile() {
           </Box>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={9}>
+        <TabPanel value={tabValue} index={10}>
           {/* Calendar - Group Activities */}
           <Box>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -1168,7 +1628,15 @@ export default function GroupProfile() {
                 <Button variant="outlined" startIcon={<ViewList />} size="small">
                   Week
                 </Button>
-                <Button variant="contained" startIcon={<Event />}>
+                <Button
+                  variant="contained"
+                  startIcon={<Event />}
+                  onClick={() => {
+                    setEditingItem(null);
+                    setEditMode(false);
+                    setCalendarDialogOpen(true);
+                  }}
+                >
                   Add Event
                 </Button>
               </Box>
@@ -1316,7 +1784,7 @@ export default function GroupProfile() {
           </Box>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={10}>
+        <TabPanel value={tabValue} index={11}>
           {/* Group Settings */}
           <Box>
             <Typography variant="h6" gutterBottom>
@@ -1603,6 +2071,518 @@ export default function GroupProfile() {
             }}
           >
             Reset Filters
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Member Dialog */}
+      <Dialog open={memberDialogOpen} onClose={() => setMemberDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editMode ? 'Edit Member' : 'Add New Member'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Full Name"
+              margin="normal"
+              defaultValue={editingItem?.name || ''}
+              id="member-name"
+            />
+            <TextField
+              fullWidth
+              label="Phone Number"
+              margin="normal"
+              defaultValue={editingItem?.phone || ''}
+              id="member-phone"
+            />
+            <TextField
+              fullWidth
+              label="Email"
+              margin="normal"
+              type="email"
+              defaultValue={editingItem?.email || ''}
+              id="member-email"
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Gender</InputLabel>
+              <Select
+                defaultValue={editingItem?.gender || 'FEMALE'}
+                label="Gender"
+                id="member-gender"
+              >
+                <MenuItem value="FEMALE">Female</MenuItem>
+                <MenuItem value="MALE">Male</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Role</InputLabel>
+              <Select
+                defaultValue={editingItem?.role || 'MEMBER'}
+                label="Role"
+                id="member-role"
+              >
+                <MenuItem value="MEMBER">Member</MenuItem>
+                <MenuItem value="CHAIRPERSON">Chairperson</MenuItem>
+                <MenuItem value="SECRETARY">Secretary</MenuItem>
+                <MenuItem value="TREASURER">Treasurer</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMemberDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const phoneValue = document.getElementById('member-phone').value;
+              const memberData = {
+                name: document.getElementById('member-name').value,
+                phone: phoneValue && !phoneValue.startsWith('+') ? `+256${phoneValue}` : phoneValue,
+                email: document.getElementById('member-email').value,
+                gender: document.getElementById('member-gender').value,
+                role: document.getElementById('member-role').value,
+              };
+
+              console.log('Submitting member data:', memberData); // Debug log
+
+              if (editMode && editingItem) {
+                updateMemberMutation.mutate({ memberId: editingItem.id, memberData });
+              } else {
+                createMemberMutation.mutate(memberData);
+              }
+            }}
+          >
+            {editMode ? 'Update' : 'Add'} Member
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Constitution Dialog */}
+      <Dialog open={constitutionDialogOpen} onClose={() => setConstitutionDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Upload New Constitution</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Document Title"
+              margin="normal"
+              id="constitution-title"
+            />
+            <TextField
+              fullWidth
+              label="Version"
+              margin="normal"
+              id="constitution-version"
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              margin="normal"
+              multiline
+              rows={3}
+              id="constitution-description"
+            />
+            <Button
+              variant="outlined"
+              component="label"
+              fullWidth
+              sx={{ mt: 2 }}
+            >
+              Choose File
+              <input
+                type="file"
+                hidden
+                accept=".pdf,.doc,.docx"
+                id="constitution-file"
+              />
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConstitutionDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              // TODO: Implement file upload
+              console.log('Constitution upload clicked');
+              setConstitutionDialogOpen(false);
+            }}
+          >
+            Upload
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Training Dialog */}
+      <Dialog open={trainingDialogOpen} onClose={() => setTrainingDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Schedule Training Session</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Training Title"
+              margin="normal"
+              id="training-title"
+            />
+            <TextField
+              fullWidth
+              label="Trainer Name"
+              margin="normal"
+              id="training-trainer"
+            />
+            <TextField
+              fullWidth
+              label="Date"
+              margin="normal"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              id="training-date"
+            />
+            <TextField
+              fullWidth
+              label="Time"
+              margin="normal"
+              type="time"
+              InputLabelProps={{ shrink: true }}
+              id="training-time"
+            />
+            <TextField
+              fullWidth
+              label="Duration (hours)"
+              margin="normal"
+              type="number"
+              id="training-duration"
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              margin="normal"
+              multiline
+              rows={3}
+              id="training-description"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTrainingDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const trainingData = {
+                title: document.getElementById('training-title').value,
+                trainer: document.getElementById('training-trainer').value,
+                date: document.getElementById('training-date').value,
+                time: document.getElementById('training-time').value,
+                duration: document.getElementById('training-duration').value,
+                description: document.getElementById('training-description').value,
+              };
+              console.log('Training data:', trainingData);
+              // TODO: Implement training creation API call
+              setTrainingDialogOpen(false);
+            }}
+          >
+            Schedule Training
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Voting Dialog */}
+      <Dialog open={votingDialogOpen} onClose={() => setVotingDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create New Vote</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Vote Title"
+              margin="normal"
+              id="vote-title"
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              margin="normal"
+              multiline
+              rows={3}
+              id="vote-description"
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Vote Type</InputLabel>
+              <Select
+                defaultValue="simple"
+                label="Vote Type"
+                id="vote-type"
+              >
+                <MenuItem value="simple">Simple Majority</MenuItem>
+                <MenuItem value="unanimous">Unanimous</MenuItem>
+                <MenuItem value="two-thirds">Two-Thirds Majority</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="End Date"
+              margin="normal"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              id="vote-end-date"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVotingDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const voteData = {
+                title: document.getElementById('vote-title').value,
+                description: document.getElementById('vote-description').value,
+                type: document.getElementById('vote-type').value,
+                end_date: document.getElementById('vote-end-date').value,
+              };
+              console.log('Vote data:', voteData);
+              // TODO: Implement vote creation API call
+              setVotingDialogOpen(false);
+            }}
+          >
+            Create Vote
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Savings Cycle Dialog */}
+      <Dialog open={savingCycleDialogOpen} onClose={() => setSavingCycleDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Start New Savings Cycle</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Cycle Name"
+              margin="normal"
+              id="cycle-name"
+            />
+            <TextField
+              fullWidth
+              label="Start Date"
+              margin="normal"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              id="cycle-start-date"
+            />
+            <TextField
+              fullWidth
+              label="End Date"
+              margin="normal"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              id="cycle-end-date"
+            />
+            <TextField
+              fullWidth
+              label="Target Amount"
+              margin="normal"
+              type="number"
+              id="cycle-target-amount"
+            />
+            <TextField
+              fullWidth
+              label="Minimum Contribution"
+              margin="normal"
+              type="number"
+              id="cycle-min-contribution"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSavingCycleDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const cycleData = {
+                name: document.getElementById('cycle-name').value,
+                start_date: document.getElementById('cycle-start-date').value,
+                end_date: document.getElementById('cycle-end-date').value,
+                target_amount: document.getElementById('cycle-target-amount').value,
+                min_contribution: document.getElementById('cycle-min-contribution').value,
+              };
+              console.log('Cycle data:', cycleData);
+              // TODO: Implement savings cycle creation API call
+              setSavingCycleDialogOpen(false);
+            }}
+          >
+            Start Cycle
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* IGA Activities Dialog */}
+      <Dialog open={igaDialogOpen} onClose={() => setIgaDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New IGA Activity</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Activity Name"
+              margin="normal"
+              id="iga-name"
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              margin="normal"
+              multiline
+              rows={3}
+              id="iga-description"
+            />
+            <TextField
+              fullWidth
+              label="Initial Investment"
+              margin="normal"
+              type="number"
+              id="iga-investment"
+            />
+            <TextField
+              fullWidth
+              label="Expected Monthly Return"
+              margin="normal"
+              type="number"
+              id="iga-return"
+            />
+            <TextField
+              fullWidth
+              label="Start Date"
+              margin="normal"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              id="iga-start-date"
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Status</InputLabel>
+              <Select
+                defaultValue="planned"
+                label="Status"
+                id="iga-status"
+              >
+                <MenuItem value="planned">Planned</MenuItem>
+                <MenuItem value="active">Active</MenuItem>
+                <MenuItem value="completed">Completed</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIgaDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const igaData = {
+                name: document.getElementById('iga-name').value,
+                description: document.getElementById('iga-description').value,
+                investment: document.getElementById('iga-investment').value,
+                expected_return: document.getElementById('iga-return').value,
+                start_date: document.getElementById('iga-start-date').value,
+                status: document.getElementById('iga-status').value,
+              };
+              console.log('IGA data:', igaData);
+              // TODO: Implement IGA creation API call
+              setIgaDialogOpen(false);
+            }}
+          >
+            Add IGA Activity
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Calendar Event Dialog */}
+      <Dialog open={calendarDialogOpen} onClose={() => setCalendarDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Calendar Event</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              label="Event Title"
+              margin="normal"
+              id="event-title"
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              margin="normal"
+              multiline
+              rows={3}
+              id="event-description"
+            />
+            <TextField
+              fullWidth
+              label="Date"
+              margin="normal"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              id="event-date"
+            />
+            <TextField
+              fullWidth
+              label="Start Time"
+              margin="normal"
+              type="time"
+              InputLabelProps={{ shrink: true }}
+              id="event-start-time"
+            />
+            <TextField
+              fullWidth
+              label="End Time"
+              margin="normal"
+              type="time"
+              InputLabelProps={{ shrink: true }}
+              id="event-end-time"
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Event Type</InputLabel>
+              <Select
+                defaultValue="meeting"
+                label="Event Type"
+                id="event-type"
+              >
+                <MenuItem value="meeting">Meeting</MenuItem>
+                <MenuItem value="training">Training</MenuItem>
+                <MenuItem value="social">Social Event</MenuItem>
+                <MenuItem value="other">Other</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCalendarDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const eventData = {
+                title: document.getElementById('event-title').value,
+                description: document.getElementById('event-description').value,
+                date: document.getElementById('event-date').value,
+                start_time: document.getElementById('event-start-time').value,
+                end_time: document.getElementById('event-end-time').value,
+                type: document.getElementById('event-type').value,
+              };
+              console.log('Event data:', eventData);
+              // TODO: Implement calendar event creation API call
+              setCalendarDialogOpen(false);
+            }}
+          >
+            Add Event
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Meeting Activities - File Upload Test</title>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2E7D32;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        .section h2 {
+            color: #1976D2;
+            margin-top: 0;
+        }
+        .login-section {
+            background-color: #e8f5e8;
+        }
+        .upload-section {
+            background-color: #e3f2fd;
+        }
+        .api-section {
+            background-color: #fff3e0;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #2E7D32;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #1B5E20;
+        }
+        .api-button {
+            background-color: #1976D2;
+        }
+        .api-button:hover {
+            background-color: #1565C0;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .code {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .feature-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .feature-list li:before {
+            content: "✅ ";
+            color: #2E7D32;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Enhanced Meeting Activities - File Upload Testing</h1>
+        
+        <div class="section login-section">
+            <h2>🔐 Step 1: Login & Get Auth Token</h2>
+            <p>First, login to get an authentication token:</p>
+            <input type="email" id="email" placeholder="Email" value="superadmin@testdriven.io">
+            <input type="password" id="password" placeholder="Password" value="superpassword123">
+            <button onclick="login()">Login</button>
+            <div id="loginResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section upload-section">
+            <h2>📎 Step 2: Test File Upload</h2>
+            <p>Upload documents for meeting activities:</p>
+            <input type="number" id="activityId" placeholder="Activity ID" value="1">
+            <select id="documentType">
+                <option value="meeting_minutes">Meeting Minutes</option>
+                <option value="attendance_sheet">Attendance Sheet</option>
+                <option value="financial_record">Financial Record</option>
+                <option value="handwritten_notes">Handwritten Notes</option>
+                <option value="photo_evidence">Photo Evidence</option>
+            </select>
+            <textarea id="description" placeholder="Document Description" rows="3">Test document upload for Enhanced Meeting Activities system</textarea>
+            <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.ppt,.pptx">
+            <button onclick="uploadFile()">Upload Document</button>
+            <div id="uploadResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section api-section">
+            <h2>🔧 Step 3: Test API Endpoints</h2>
+            <p>Test various Enhanced Meeting Activities API endpoints:</p>
+            <button class="api-button" onclick="testHealthCheck()">Health Check</button>
+            <button class="api-button" onclick="testMeetingActivities()">Get Meeting Activities</button>
+            <button class="api-button" onclick="testActivityDocuments()">Get Activity Documents</button>
+            <button class="api-button" onclick="testAnalytics()">Get Analytics</button>
+            <div id="apiResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>📋 Current System Status</h2>
+            <div class="code">
+✅ EXISTING DATA:
+• 3 Savings Groups (Kampala Women's Cooperative, Nakasero Traders, Bugolobi Youth)
+• 8 Group Members across all groups
+• Authentication system working
+• Enhanced Meeting Activities API operational
+
+❌ MISSING FOR DEMO:
+• No meetings created yet
+• No meeting activities to attach documents to
+
+📍 SOLUTION:
+• Create a meeting first using existing group data
+• Add activities to the meeting
+• Then demonstrate document upload functionality
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Step 4: Create Demo Meeting & Activity</h2>
+            <p>Create a meeting and activity to demonstrate file upload:</p>
+            <button class="api-button" onclick="createDemoMeeting()">Create Demo Meeting</button>
+            <button class="api-button" onclick="createDemoActivity()">Create Demo Activity</button>
+            <div id="demoResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>📋 Enhanced Meeting Activities Features</h2>
+            <ul class="feature-list">
+                <li>Secure file upload with validation (PDF, Word, PowerPoint, Images)</li>
+                <li>Document attachment to specific meeting activities</li>
+                <li>Role-based access control for document viewing</li>
+                <li>Unique file naming and organized directory structure</li>
+                <li>Support for handwritten records and attendance sheets</li>
+                <li>Photo evidence attachment for activity proof</li>
+                <li>Meeting minutes and financial record management</li>
+                <li>Real-time activity tracking and progress monitoring</li>
+                <li>Comprehensive analytics and reporting</li>
+                <li>Member participation tracking with document proof</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>🌐 Frontend Access</h2>
+            <p>Access the Enhanced Meeting Activities through the web interface:</p>
+            <div class="code">
+1. Go to: http://localhost:3000
+2. Login with: superadmin@testdriven.io / superpassword123
+3. Navigate to: Left sidebar → "Meetings" (EventNote icon)
+4. Look for: "Activity Reports" and "System Analytics" sections
+5. File upload available in: Activity details → Documents section
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = '';
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('http://localhost:5000/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                const resultDiv = document.getElementById('loginResult');
+                
+                if (data.status === 'success') {
+                    authToken = data.auth_token;
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Login successful!\nAuth Token: ${authToken.substring(0, 50)}...\nUser: ${data.user.username} (${data.user.role})`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Login failed: ${data.message}`;
+                }
+                
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('loginResult');
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+
+        async function uploadFile() {
+            if (!authToken) {
+                alert('Please login first to get an auth token');
+                return;
+            }
+
+            const activityId = document.getElementById('activityId').value;
+            const documentType = document.getElementById('documentType').value;
+            const description = document.getElementById('description').value;
+            const fileInput = document.getElementById('fileInput');
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a file to upload');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('document_type', documentType);
+            formData.append('description', description);
+
+            try {
+                const response = await fetch(`http://localhost:5000/api/meeting-activities/activities/${activityId}/documents/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                const resultDiv = document.getElementById('uploadResult');
+                
+                if (data.status === 'success') {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ File uploaded successfully!\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Upload failed: ${data.message}`;
+                }
+                
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('uploadResult');
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+
+        async function testHealthCheck() {
+            await testApiEndpoint('http://localhost:5000/api/meeting-activities/health', 'GET');
+        }
+
+        async function testMeetingActivities() {
+            await testApiEndpoint('http://localhost:5000/api/meeting-activities/meetings/1/activities', 'GET');
+        }
+
+        async function testActivityDocuments() {
+            await testApiEndpoint('http://localhost:5000/api/meeting-activities/activities/1/documents', 'GET');
+        }
+
+        async function testAnalytics() {
+            await testApiEndpoint('http://localhost:5000/api/meeting-activities/analytics', 'GET');
+        }
+
+        async function createDemoMeeting() {
+            if (!authToken) {
+                alert('Please login first to get an auth token');
+                return;
+            }
+
+            try {
+                // Create a meeting using direct database insertion approach
+                const response = await fetch('http://localhost:5000/api/meeting-activities/demo/create-meeting', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        group_id: 7, // Kampala Women's Cooperative
+                        meeting_date: '2025-09-22',
+                        chairperson_id: 19, // Sarah Nakato
+                        secretary_id: 20,   // Mary Nambi
+                        treasurer_id: 21    // Grace Mukasa
+                    })
+                });
+
+                const data = await response.json();
+                const resultDiv = document.getElementById('demoResult');
+
+                if (data.status === 'success') {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Demo meeting created!\nMeeting ID: ${data.meeting_id}\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result info';
+                    resultDiv.textContent = `ℹ️ Response: ${JSON.stringify(data, null, 2)}`;
+                }
+
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('demoResult');
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+
+        async function createDemoActivity() {
+            if (!authToken) {
+                alert('Please login first to get an auth token');
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:5000/api/meeting-activities/demo/create-activity', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        meeting_id: 1,
+                        activity_type: 'SAVINGS_COLLECTION',
+                        title: 'Weekly Savings Collection',
+                        description: 'Collect weekly savings contributions from all members'
+                    })
+                });
+
+                const data = await response.json();
+                const resultDiv = document.getElementById('demoResult');
+
+                if (data.status === 'success') {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Demo activity created!\nActivity ID: ${data.activity_id}\nNow you can test file upload with Activity ID: ${data.activity_id}`;
+
+                    // Update the activity ID field
+                    document.getElementById('activityId').value = data.activity_id;
+                } else {
+                    resultDiv.className = 'result info';
+                    resultDiv.textContent = `ℹ️ Response: ${JSON.stringify(data, null, 2)}`;
+                }
+
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('demoResult');
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+
+        async function testApiEndpoint(url, method) {
+            try {
+                const headers = {};
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: headers
+                });
+                
+                const data = await response.json();
+                const resultDiv = document.getElementById('apiResult');
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ ${url}\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result info';
+                    resultDiv.textContent = `ℹ️ ${url}\n${JSON.stringify(data, null, 2)}`;
+                }
+                
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                const resultDiv = document.getElementById('apiResult');
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error testing ${url}: ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

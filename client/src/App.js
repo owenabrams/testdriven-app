@@ -16,11 +16,13 @@ const CampaignDetailsPage = lazy(() => import('./pages/Campaigns/CampaignDetails
 const LoansPage = lazy(() => import('./pages/Loans/LoansPage'));
 const LoanAssessmentPage = lazy(() => import('./pages/Loans/LoanAssessmentPage'));
 const AnalyticsPage = lazy(() => import('./pages/Analytics/AnalyticsPage'));
+const CalendarPage = lazy(() => import('./pages/Calendar/CalendarPage'));
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage'));
 const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'));
-const SavingsGroupsApp = lazy(() => import('./pages/SavingsGroups/SavingsGroupsApp'));
 const NotificationsPage = lazy(() => import('./pages/Notifications/NotificationsPage'));
 const MemberProfilePage = lazy(() => import('./pages/Members/MemberProfilePage'));
+const MeetingDetailsPage = lazy(() => import('./pages/Meetings/MeetingDetailsPage'));
+const CurrencySettings = lazy(() => import('./pages/Settings/CurrencySettings'));
 
 function App() {
   const { user, loading } = useAuth();
@@ -34,30 +36,33 @@ function App() {
   }
 
   return (
-    <NotificationProvider>
-      <Layout>
-        <Suspense fallback={<LoadingSpinner />}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/groups" element={<GroupsPage />} />
-            <Route path="/groups/:id" element={<GroupDetailsPage />} />
-            <Route path="/members/:memberId" element={<MemberProfilePage />} />
-            <Route path="/campaigns" element={<CampaignsPage />} />
-            <Route path="/campaigns/:id" element={<CampaignDetailsPage />} />
-            <Route path="/loans" element={<LoansPage />} />
-            <Route path="/loans/assessment/:memberId" element={<LoanAssessmentPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/savings-groups/*" element={<SavingsGroupsApp />} />
-            <Route path="/meetings" element={<Navigate to="/savings-groups?page=meetings" replace />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </Suspense>
-      </Layout>
-    </NotificationProvider>
+    <Layout>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/groups" element={<GroupsPage />} />
+          <Route path="/groups/:id" element={<GroupDetailsPage />} />
+          <Route path="/members" element={<Navigate to="/groups" replace />} />
+          <Route path="/members/:memberId" element={<MemberProfilePage />} />
+          <Route path="/meetings" element={<Navigate to="/calendar" replace />} />
+          <Route path="/meetings/:meetingId" element={<MeetingDetailsPage />} />
+          <Route path="/activities" element={<Navigate to="/groups" replace />} />
+          <Route path="/campaigns" element={<CampaignsPage />} />
+          <Route path="/campaigns/:id" element={<CampaignDetailsPage />} />
+          <Route path="/loans" element={<LoansPage />} />
+          <Route path="/loans/assessment/:memberId" element={<LoanAssessmentPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/export" element={<Navigate to="/analytics" replace />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings/currency" element={<CurrencySettings />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Suspense>
+    </Layout>
   );
 }
 

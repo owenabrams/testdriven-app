@@ -2415,3 +2415,10 @@ class AttendanceRecord(db.Model):
             "recorded_by": self.recorded_by,
             "created_date": self.created_date.isoformat() if self.created_date else None
         }
+
+
+# Import enhanced meeting activity models
+from project.api.meeting_models import (
+    MeetingAgenda, MeetingMinutes, MeetingWorkflowStep,
+    MeetingActivity, MemberActivityParticipation, ActivityDocument, ActivityTransaction
+)

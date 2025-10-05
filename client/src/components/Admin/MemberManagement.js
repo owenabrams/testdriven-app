@@ -44,7 +44,7 @@ import {
   Warning,
   CheckCircle,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { savingsGroupsAPI } from '../../services/api';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -73,13 +73,11 @@ export default function MemberManagement() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   // Fetch all groups to get members
-  const { data: groups, isLoading } = useQuery(
-    'admin-all-groups',
-    () => savingsGroupsAPI.getGroups(),
-    {
-      select: (response) => response.data?.data || [],
-    }
-  );
+  const { data: groups, isLoading } = useQuery({
+    queryKey: ['admin-all-groups'],
+    queryFn: () => savingsGroupsAPI.getGroups(),
+    select: (response) => response.data?.data || [],
+  });
 
   // Extract all members from groups
   const allMembers = React.useMemo(() => {
@@ -104,36 +102,32 @@ export default function MemberManagement() {
   );
 
   // Update member mutation
-  const updateMemberMutation = useMutation(
-    ({ groupId, memberId, data }) => savingsGroupsAPI.updateMember(groupId, memberId, data),
-    {
-      onSuccess: () => {
-        toast.success('Member updated successfully');
-        queryClient.invalidateQueries('admin-all-groups');
-        setDialogOpen(false);
-        reset();
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || 'Failed to update member');
-      },
-    }
-  );
+  const updateMemberMutation = useMutation({
+    mutationFn: ({ groupId, memberId, data }) => savingsGroupsAPI.updateMember(groupId, memberId, data),
+    onSuccess: () => {
+      toast.success('Member updated successfully');
+      queryClient.invalidateQueries('admin-all-groups');
+      setDialogOpen(false);
+      reset();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update member');
+    },
+  });
 
   // Record savings mutation
-  const recordSavingsMutation = useMutation(
-    ({ groupId, memberId, data }) => savingsGroupsAPI.recordSaving(groupId, memberId, data),
-    {
-      onSuccess: () => {
-        toast.success('Savings recorded successfully');
-        queryClient.invalidateQueries('admin-all-groups');
-        setDialogOpen(false);
-        reset();
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || 'Failed to record savings');
-      },
-    }
-  );
+  const recordSavingsMutation = useMutation({
+    mutationFn: ({ groupId, memberId, data }) => savingsGroupsAPI.recordSaving(groupId, memberId, data),
+    onSuccess: () => {
+      toast.success('Savings recorded successfully');
+      queryClient.invalidateQueries('admin-all-groups');
+      setDialogOpen(false);
+      reset();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to record savings');
+    },
+  });
 
   const handleOpenDialog = (member, type) => {
     setSelectedMember(member);

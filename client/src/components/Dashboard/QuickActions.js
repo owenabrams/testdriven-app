@@ -26,21 +26,30 @@ export default function QuickActions() {
       description: 'Start a new savings group',
       icon: <Groups />,
       color: 'primary',
-      onClick: () => navigate('/groups?action=create'),
+      onClick: () => {
+        console.log('🔧 QuickActions: Create Group clicked - navigating to /groups?action=create');
+        navigate('/groups?action=create');
+      },
     },
     {
       title: 'New Campaign',
       description: 'Launch a target campaign',
       icon: <Campaign />,
       color: 'secondary',
-      onClick: () => navigate('/campaigns?action=create'),
+      onClick: () => {
+        console.log('🔧 QuickActions: New Campaign clicked - navigating to /campaigns?action=create');
+        navigate('/campaigns?action=create');
+      },
     },
     {
       title: 'Record Savings',
       description: 'Add member savings',
       icon: <Savings />,
       color: 'success',
-      onClick: () => navigate('/groups?action=savings'),
+      onClick: () => {
+        console.log('🔧 QuickActions: Record Savings clicked - navigating to /groups?action=savings');
+        navigate('/groups?action=savings');
+      },
     },
     {
       title: 'Loan Assessment',

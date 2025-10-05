@@ -44,7 +44,7 @@ import {
   Edit,
   History,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { savingsGroupsAPI } from '../../services/api';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -107,13 +107,12 @@ export default function FinancialSupport() {
   );
 
   // Verify transaction mutation
-  const verifyTransactionMutation = useMutation(
-    (data) => {
+  const verifyTransactionMutation = useMutation({
+    mutationFn: (data) => {
       // This would call the actual API endpoint
       return Promise.resolve({ success: true });
     },
-    {
-      onSuccess: () => {
+    onSuccess: () => {
         toast.success('Transaction verified successfully');
         setDialogOpen(false);
         reset();
@@ -121,17 +120,15 @@ export default function FinancialSupport() {
       onError: (error) => {
         toast.error('Failed to verify transaction');
       },
-    }
-  );
+  });
 
   // Balance correction mutation
-  const correctBalanceMutation = useMutation(
-    (data) => {
+  const correctBalanceMutation = useMutation({
+    mutationFn: (data) => {
       // This would call the actual API endpoint
       return Promise.resolve({ success: true });
     },
-    {
-      onSuccess: () => {
+    onSuccess: () => {
         toast.success('Balance corrected successfully');
         setDialogOpen(false);
         reset();
@@ -139,8 +136,7 @@ export default function FinancialSupport() {
       onError: (error) => {
         toast.error('Failed to correct balance');
       },
-    }
-  );
+  });
 
   const handleOpenDialog = (transaction, type) => {
     setSelectedTransaction(transaction);

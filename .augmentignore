@@ -1,32 +1,76 @@
-# Node modules
+# Node modules (major performance impact - 763MB in this project)
 node_modules/
 */node_modules/
+**/node_modules/
+client/node_modules/
 
 # Build directories
 build/
 dist/
+out/
+target/
 */build/
 */dist/
+*/out/
+*/target/
 
-# Cache directories
+# Cache directories (can be large)
 .cache/
 */.cache/
+.next/
+.nuxt/
+.serverless/
+.fusebox/
+
+# Package manager lock files (large and not needed for code understanding)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+Pipfile.lock
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+.Python
+
+# Git directory (can be large)
+.git/
 
 # Logs
 *.log
 logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # IDE files
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
 
 # Temporary files
 *.tmp
 *.temp
+tmp/
+temp/
+
+# Coverage and test output
+coverage/
+.nyc_output/
+test-results/
 
 # GitHub workflows (can cause validation issues)
 .github/workflows/

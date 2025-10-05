@@ -30,7 +30,7 @@ import {
   MarkEmailUnread as MarkUnreadIcon,
   Clear as ClearAllIcon,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -68,56 +68,50 @@ export default function NotificationsPage() {
   const queryClient = useQueryClient();
 
   // Fetch notifications
-  const { data: notifications, isLoading, error } = useQuery(
-    ['notifications', user?.id],
-    () => notificationsAPI.getNotifications(user?.id),
-    {
-      select: (response) => response.data.data || [],
+  const { data: notifications, isLoading, error } = useQuery({
+    queryKey: ['notifications', user?.id],
+    queryFn: () => notificationsAPI.getNotifications(user?.id),
+
+      select: (response) => response.data?.notifications || [],
       refetchInterval: 30000, // Refetch every 30 seconds
-    }
-  );
+    
+  });
 
   // Mark as read mutation
-  const markAsReadMutation = useMutation(
-    (notificationId) => notificationsAPI.markAsRead(notificationId),
-    {
-      onSuccess: () => {
+  const markAsReadMutation = useMutation({
+    mutationFn: (notificationId) => notificationsAPI.markAsRead(notificationId),
+    onSuccess: () => {
         queryClient.invalidateQueries(['notifications']);
         toast.success('Notification marked as read');
       },
       onError: () => {
         toast.error('Failed to mark notification as read');
       },
-    }
-  );
+  });
 
   // Delete notification mutation
-  const deleteNotificationMutation = useMutation(
-    (notificationId) => notificationsAPI.deleteNotification(notificationId),
-    {
-      onSuccess: () => {
+  const deleteNotificationMutation = useMutation({
+    mutationFn: (notificationId) => notificationsAPI.deleteNotification(notificationId),
+    onSuccess: () => {
         queryClient.invalidateQueries(['notifications']);
         toast.success('Notification deleted');
       },
       onError: () => {
         toast.error('Failed to delete notification');
       },
-    }
-  );
+  });
 
   // Mark all as read mutation
-  const markAllAsReadMutation = useMutation(
-    () => notificationsAPI.markAllAsRead(user?.id),
-    {
-      onSuccess: () => {
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => notificationsAPI.markAllAsRead(user?.id),
+    onSuccess: () => {
         queryClient.invalidateQueries(['notifications']);
         toast.success('All notifications marked as read');
       },
       onError: () => {
         toast.error('Failed to mark all notifications as read');
       },
-    }
-  );
+  });
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);

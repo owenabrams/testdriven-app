@@ -1,0 +1,18 @@
+{
+  "registry-mirrors": [],
+  "insecure-registries": [],
+  "debug": false,
+  "experimental": false,
+  "max-concurrent-downloads": 1,
+  "max-concurrent-uploads": 1,
+  "max-download-attempts": 10,
+  "builder": {
+    "gc": {
+      "enabled": true,
+      "defaultKeepStorage": "20GB"
+    }
+  },
+  "features": {
+    "buildkit": true
+  }
+}

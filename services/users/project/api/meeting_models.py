@@ -13,229 +13,11 @@ from decimal import Decimal
 from sqlalchemy import func
 from project import db
 
-
-class GroupConstitution(db.Model):
-    """Group constitution and governance rules"""
-    
-    __tablename__ = "group_constitutions"
-    
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    group_id = db.Column(db.Integer, db.ForeignKey('savings_groups.id'), nullable=False, unique=True)
-    
-    # Constitution details
-    version = db.Column(db.String(20), nullable=False, default='1.0')
-    title = db.Column(db.String(200), nullable=False)
-    preamble = db.Column(db.Text, nullable=True)
-    
-    # Governance rules
-    meeting_frequency = db.Column(db.String(20), nullable=False, default='WEEKLY')  # WEEKLY, BIWEEKLY, MONTHLY
-    quorum_percentage = db.Column(db.Numeric(5, 2), nullable=False, default=60.00)  # Minimum attendance for valid meeting
-    voting_threshold = db.Column(db.Numeric(5, 2), nullable=False, default=50.00)  # Percentage needed for decisions
-    
-    # Savings rules
-    minimum_personal_savings = db.Column(db.Numeric(10, 2), nullable=False, default=5000.00)
-    minimum_ecd_contribution = db.Column(db.Numeric(10, 2), nullable=False, default=2000.00)
-    minimum_social_contribution = db.Column(db.Numeric(10, 2), nullable=False, default=1000.00)
-    
-    # Loan rules
-    max_loan_multiplier = db.Column(db.Numeric(5, 2), nullable=False, default=3.00)  # Times savings balance
-    loan_interest_rate = db.Column(db.Numeric(5, 2), nullable=False, default=10.00)  # Monthly percentage
-    max_loan_term_months = db.Column(db.Integer, nullable=False, default=12)
-    
-    # Fine rules
-    absence_fine = db.Column(db.Numeric(10, 2), nullable=False, default=1000.00)
-    late_payment_fine = db.Column(db.Numeric(10, 2), nullable=False, default=500.00)
-    misconduct_fine_range = db.Column(db.String(50), nullable=False, default='1000-10000')
-    
-    # Leadership rules
-    leadership_term_months = db.Column(db.Integer, nullable=False, default=12)
-    min_savings_for_leadership = db.Column(db.Numeric(10, 2), nullable=False, default=50000.00)
-    
-    # Document management
-    document_url = db.Column(db.String(500), nullable=True)
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
-    
-    # Approval tracking
-    approved_by_members = db.Column(db.Integer, default=0, nullable=False)
-    total_eligible_voters = db.Column(db.Integer, default=0, nullable=False)
-    approval_percentage = db.Column(db.Numeric(5, 2), default=0.00, nullable=False)
-    
-    # Audit fields
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_date = db.Column(db.DateTime, default=func.now(), nullable=False)
-    approved_date = db.Column(db.DateTime, nullable=True)
-    last_amended_date = db.Column(db.DateTime, nullable=True)
-    
-    # Relationships
-    group = db.relationship('SavingsGroup', backref=db.backref('constitution', uselist=False))
-    creator = db.relationship('User', backref='created_constitutions')
-    
-    def __init__(self, group_id, title, created_by, **kwargs):
-        self.group_id = group_id
-        self.title = title
-        self.created_by = created_by
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-    
-    def is_approved(self):
-        """Check if constitution is approved by required majority"""
-        if self.total_eligible_voters == 0:
-            return False
-        return self.approval_percentage >= self.voting_threshold
-    
-    def to_json(self):
-        return {
-            "id": self.id,
-            "group_id": self.group_id,
-            "version": self.version,
-            "title": self.title,
-            "meeting_frequency": self.meeting_frequency,
-            "quorum_percentage": float(self.quorum_percentage),
-            "voting_threshold": float(self.voting_threshold),
-            "savings_rules": {
-                "minimum_personal_savings": float(self.minimum_personal_savings),
-                "minimum_ecd_contribution": float(self.minimum_ecd_contribution),
-                "minimum_social_contribution": float(self.minimum_social_contribution)
-            },
-            "loan_rules": {
-                "max_loan_multiplier": float(self.max_loan_multiplier),
-                "loan_interest_rate": float(self.loan_interest_rate),
-                "max_loan_term_months": self.max_loan_term_months
-            },
-            "fine_rules": {
-                "absence_fine": float(self.absence_fine),
-                "late_payment_fine": float(self.late_payment_fine),
-                "misconduct_fine_range": self.misconduct_fine_range
-            },
-            "is_approved": self.is_approved(),
-            "approval_percentage": float(self.approval_percentage),
-            "created_date": self.created_date.isoformat() if self.created_date else None,
-            "approved_date": self.approved_date.isoformat() if self.approved_date else None
-        }
+# Import existing models to avoid duplication
+# GroupConstitution is already defined in models.py
 
 
-class Meeting(db.Model):
-    """Individual meeting instances with complete workflow tracking"""
-    
-    __tablename__ = "meetings"
-    
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    group_id = db.Column(db.Integer, db.ForeignKey('savings_groups.id'), nullable=False)
-    
-    # Meeting identification
-    meeting_number = db.Column(db.Integer, nullable=False)  # Sequential meeting number for group
-    meeting_date = db.Column(db.Date, nullable=False)
-    meeting_type = db.Column(db.String(20), nullable=False, default='REGULAR')  # REGULAR, SPECIAL, ANNUAL, EMERGENCY
-    
-    # Meeting status and workflow
-    status = db.Column(db.String(20), nullable=False, default='SCHEDULED')  # SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
-    start_time = db.Column(db.DateTime, nullable=True)
-    end_time = db.Column(db.DateTime, nullable=True)
-    
-    # Leadership
-    chairperson_id = db.Column(db.Integer, db.ForeignKey('group_members.id'), nullable=False)
-    secretary_id = db.Column(db.Integer, db.ForeignKey('group_members.id'), nullable=False)
-    treasurer_id = db.Column(db.Integer, db.ForeignKey('group_members.id'), nullable=False)
-    
-    # Attendance tracking
-    total_members = db.Column(db.Integer, nullable=False, default=0)
-    members_present = db.Column(db.Integer, nullable=False, default=0)
-    quorum_met = db.Column(db.Boolean, default=False, nullable=False)
-    
-    # Meeting outcomes
-    total_savings_collected = db.Column(db.Numeric(12, 2), default=0.00, nullable=False)
-    loans_disbursed_count = db.Column(db.Integer, default=0, nullable=False)
-    loans_disbursed_amount = db.Column(db.Numeric(12, 2), default=0.00, nullable=False)
-    fines_imposed_count = db.Column(db.Integer, default=0, nullable=False)
-    fines_imposed_amount = db.Column(db.Numeric(12, 2), default=0.00, nullable=False)
-    
-    # Meeting notes
-    general_notes = db.Column(db.Text, nullable=True)
-    action_items = db.Column(db.Text, nullable=True)  # JSON array of action items
-    next_meeting_date = db.Column(db.Date, nullable=True)
-    
-    # Audit fields
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_date = db.Column(db.DateTime, default=func.now(), nullable=False)
-    updated_date = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
-    
-    # Relationships
-    group = db.relationship('SavingsGroup', backref='meetings')
-    chairperson = db.relationship('GroupMember', foreign_keys=[chairperson_id], backref='chaired_meetings')
-    secretary = db.relationship('GroupMember', foreign_keys=[secretary_id], backref='recorded_meetings')
-    treasurer = db.relationship('GroupMember', foreign_keys=[treasurer_id], backref='treasured_meetings')
-    creator = db.relationship('User', backref='created_meetings')
-    
-    # Constraints
-    __table_args__ = (
-        db.UniqueConstraint('group_id', 'meeting_number', name='unique_group_meeting_number'),
-        db.CheckConstraint("status IN ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')", name='check_valid_meeting_status'),
-        db.CheckConstraint("meeting_type IN ('REGULAR', 'SPECIAL', 'ANNUAL', 'EMERGENCY')", name='check_valid_meeting_type'),
-        db.CheckConstraint('members_present <= total_members', name='check_attendance_logic'),
-    )
-    
-    def __init__(self, group_id, meeting_date, chairperson_id, secretary_id, treasurer_id, created_by, meeting_type='REGULAR'):
-        self.group_id = group_id
-        self.meeting_date = meeting_date
-        self.chairperson_id = chairperson_id
-        self.secretary_id = secretary_id
-        self.treasurer_id = treasurer_id
-        self.created_by = created_by
-        self.meeting_type = meeting_type
-        
-        # Auto-generate meeting number
-        last_meeting = Meeting.query.filter_by(group_id=group_id).order_by(Meeting.meeting_number.desc()).first()
-        self.meeting_number = (last_meeting.meeting_number + 1) if last_meeting else 1
-    
-    def calculate_quorum(self):
-        """Calculate if quorum is met based on group constitution"""
-        if self.total_members == 0:
-            return False
-        
-        constitution = self.group.constitution
-        if not constitution:
-            # Default quorum of 60%
-            required_percentage = 60.00
-        else:
-            required_percentage = constitution.quorum_percentage
-        
-        attendance_percentage = (self.members_present / self.total_members) * 100
-        self.quorum_met = attendance_percentage >= required_percentage
-        return self.quorum_met
-    
-    def to_json(self):
-        return {
-            "id": self.id,
-            "group_id": self.group_id,
-            "meeting_number": self.meeting_number,
-            "meeting_date": self.meeting_date.isoformat() if self.meeting_date else None,
-            "meeting_type": self.meeting_type,
-            "status": self.status,
-            "start_time": self.start_time.isoformat() if self.start_time else None,
-            "end_time": self.end_time.isoformat() if self.end_time else None,
-            "leadership": {
-                "chairperson": self.chairperson.name if self.chairperson else None,
-                "secretary": self.secretary.name if self.secretary else None,
-                "treasurer": self.treasurer.name if self.treasurer else None
-            },
-            "attendance": {
-                "total_members": self.total_members,
-                "members_present": self.members_present,
-                "quorum_met": self.quorum_met,
-                "attendance_percentage": round((self.members_present / self.total_members * 100), 2) if self.total_members > 0 else 0
-            },
-            "financial_summary": {
-                "total_savings_collected": float(self.total_savings_collected),
-                "loans_disbursed_count": self.loans_disbursed_count,
-                "loans_disbursed_amount": float(self.loans_disbursed_amount),
-                "fines_imposed_count": self.fines_imposed_count,
-                "fines_imposed_amount": float(self.fines_imposed_amount)
-            },
-            "next_meeting_date": self.next_meeting_date.isoformat() if self.next_meeting_date else None,
-            "created_date": self.created_date.isoformat() if self.created_date else None
-        }
-
+# Meeting model is already defined in models.py
 
 class MeetingAgenda(db.Model):
     """Meeting agenda with structured workflow steps"""
@@ -520,4 +302,409 @@ class MeetingWorkflowStep(db.Model):
                 "loans": self.related_loans,
                 "fines": self.related_fines
             }
+        }
+
+
+class MeetingActivity(db.Model):
+    """Enhanced individual activities within meetings with detailed member participation tracking"""
+
+    __tablename__ = "meeting_activities"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meetings.id'), nullable=False)
+
+    # Activity identification
+    activity_type = db.Column(db.String(50), nullable=False)  # PERSONAL_SAVINGS, ECD_FUND, SOCIAL_FUND, TARGET_SAVINGS, LOAN_APPLICATION, LOAN_DISBURSEMENT, LOAN_REPAYMENT, FINES, AOB
+    activity_name = db.Column(db.String(200), nullable=False)
+    activity_order = db.Column(db.Integer, nullable=False)
+
+    # Activity execution
+    status = db.Column(db.String(20), nullable=False, default='PENDING')  # PENDING, IN_PROGRESS, COMPLETED, SKIPPED
+    started_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    duration_minutes = db.Column(db.Integer, nullable=True)
+
+    # Activity details
+    description = db.Column(db.Text, nullable=True)
+    responsible_member_id = db.Column(db.Integer, db.ForeignKey('group_members.id'), nullable=True)
+
+    # Activity outcomes
+    total_amount = db.Column(db.Numeric(12, 2), default=0.00, nullable=False)
+    members_participated = db.Column(db.Integer, default=0, nullable=False)
+    members_expected = db.Column(db.Integer, default=0, nullable=False)
+    participation_rate = db.Column(db.Numeric(5, 2), default=0.00, nullable=False)  # Percentage
+
+    # Activity notes and outcomes
+    outcome_notes = db.Column(db.Text, nullable=True)
+    challenges_faced = db.Column(db.Text, nullable=True)
+    success_factors = db.Column(db.Text, nullable=True)
+
+    # Document attachments for proof of activity
+    has_attachments = db.Column(db.Boolean, default=False, nullable=False)
+    attachment_count = db.Column(db.Integer, default=0, nullable=False)
+
+    # Audit fields
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_date = db.Column(db.DateTime, default=func.now(), nullable=False)
+    updated_date = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+
+    # Relationships
+    meeting = db.relationship('Meeting', backref='activities')
+    responsible_member = db.relationship('GroupMember', backref='responsible_activities')
+    creator = db.relationship('User', backref='created_activities')
+
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('meeting_id', 'activity_order', name='unique_meeting_activity_order'),
+        db.CheckConstraint("status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED')", name='check_valid_activity_status'),
+        db.CheckConstraint("activity_type IN ('PERSONAL_SAVINGS', 'ECD_FUND', 'SOCIAL_FUND', 'TARGET_SAVINGS', 'LOAN_APPLICATION', 'LOAN_DISBURSEMENT', 'LOAN_REPAYMENT', 'FINES', 'AOB', 'ATTENDANCE', 'MINUTES_REVIEW')", name='check_valid_activity_type'),
+        db.CheckConstraint('members_participated <= members_expected', name='check_participation_logic'),
+    )
+
+    def __init__(self, meeting_id, activity_type, activity_name, activity_order, responsible_member_id, created_by):
+        self.meeting_id = meeting_id
+        self.activity_type = activity_type
+        self.activity_name = activity_name
+        self.activity_order = activity_order
+        self.responsible_member_id = responsible_member_id
+        self.created_by = created_by
+
+    def start_activity(self):
+        """Mark activity as started"""
+        self.status = 'IN_PROGRESS'
+        self.started_at = datetime.now()
+
+    def complete_activity(self, outcome_notes=None, total_amount=0.00):
+        """Mark activity as completed"""
+        self.status = 'COMPLETED'
+        self.completed_at = datetime.now()
+        if self.started_at:
+            duration = self.completed_at - self.started_at
+            self.duration_minutes = int(duration.total_seconds() / 60)
+        if outcome_notes:
+            self.outcome_notes = outcome_notes
+        self.total_amount = total_amount
+
+        # Calculate participation rate
+        if self.members_expected > 0:
+            self.participation_rate = (self.members_participated / self.members_expected) * 100
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "meeting_id": self.meeting_id,
+            "activity_type": self.activity_type,
+            "activity_name": self.activity_name,
+            "activity_order": self.activity_order,
+            "status": self.status,
+            "timing": {
+                "started_at": self.started_at.isoformat() if self.started_at else None,
+                "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+                "duration_minutes": self.duration_minutes
+            },
+            "responsible_member": self.responsible_member.name if self.responsible_member else None,
+            "outcomes": {
+                "total_amount": float(self.total_amount),
+                "members_participated": self.members_participated,
+                "members_expected": self.members_expected,
+                "participation_rate": float(self.participation_rate)
+            },
+            "notes": {
+                "description": self.description,
+                "outcome_notes": self.outcome_notes,
+                "challenges_faced": self.challenges_faced,
+                "success_factors": self.success_factors
+            },
+            "attachments": {
+                "has_attachments": self.has_attachments,
+                "attachment_count": self.attachment_count
+            },
+            "created_date": self.created_date.isoformat() if self.created_date else None,
+            "updated_date": self.updated_date.isoformat() if self.updated_date else None
+        }
+
+
+class MemberActivityParticipation(db.Model):
+    """Track individual member participation in each meeting activity"""
+
+    __tablename__ = "member_activity_participation"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    meeting_activity_id = db.Column(db.Integer, db.ForeignKey('meeting_activities.id'), nullable=False)
+    member_id = db.Column(db.Integer, db.ForeignKey('group_members.id'), nullable=False)
+
+    # Participation details
+    participation_type = db.Column(db.String(50), nullable=False)  # CONTRIBUTED, RECEIVED, VOTED, DISCUSSED, ATTENDED, ABSENT
+    amount = db.Column(db.Numeric(12, 2), default=0.00, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='PENDING')  # PENDING, COMPLETED, PARTIAL, SKIPPED
+
+    # Participation notes
+    notes = db.Column(db.Text, nullable=True)
+    challenges = db.Column(db.Text, nullable=True)
+
+    # Timing
+    participation_time = db.Column(db.DateTime, default=func.now(), nullable=False)
+
+    # Quality metrics
+    participation_score = db.Column(db.Numeric(3, 1), default=0.0, nullable=False)  # 0.0 to 10.0
+    engagement_level = db.Column(db.String(20), default='MODERATE', nullable=False)  # LOW, MODERATE, HIGH, EXCELLENT
+
+    # Document proof for this member's participation
+    has_proof_document = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Audit fields
+    recorded_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    recorded_date = db.Column(db.DateTime, default=func.now(), nullable=False)
+
+    # Relationships
+    activity = db.relationship('MeetingActivity', backref='member_participations')
+    member = db.relationship('GroupMember', backref='activity_participations')
+    recorder = db.relationship('User', backref='recorded_participations')
+
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('meeting_activity_id', 'member_id', name='unique_member_activity_participation'),
+        db.CheckConstraint("status IN ('PENDING', 'COMPLETED', 'PARTIAL', 'SKIPPED')", name='check_valid_participation_status'),
+        db.CheckConstraint("participation_type IN ('CONTRIBUTED', 'RECEIVED', 'VOTED', 'DISCUSSED', 'ATTENDED', 'ABSENT', 'LATE')", name='check_valid_participation_type'),
+        db.CheckConstraint("engagement_level IN ('LOW', 'MODERATE', 'HIGH', 'EXCELLENT')", name='check_valid_engagement_level'),
+        db.CheckConstraint('participation_score >= 0.0 AND participation_score <= 10.0', name='check_participation_score_range'),
+    )
+
+    def __init__(self, meeting_activity_id, member_id, participation_type, recorded_by, amount=0.00):
+        self.meeting_activity_id = meeting_activity_id
+        self.member_id = member_id
+        self.participation_type = participation_type
+        self.recorded_by = recorded_by
+        self.amount = amount
+
+    def calculate_participation_score(self):
+        """Calculate participation score based on various factors"""
+        base_score = 5.0  # Base score for participation
+
+        # Adjust based on participation type
+        type_scores = {
+            'CONTRIBUTED': 2.0,
+            'RECEIVED': 1.0,
+            'VOTED': 1.5,
+            'DISCUSSED': 1.0,
+            'ATTENDED': 1.0,
+            'LATE': -0.5,
+            'ABSENT': -2.0
+        }
+
+        base_score += type_scores.get(self.participation_type, 0)
+
+        # Adjust based on amount (for financial activities)
+        if self.amount > 0:
+            base_score += min(2.0, self.amount / 10000)  # Up to 2 points for amount
+
+        # Ensure score is within bounds
+        self.participation_score = max(0.0, min(10.0, base_score))
+
+        # Set engagement level based on score
+        if self.participation_score >= 8.0:
+            self.engagement_level = 'EXCELLENT'
+        elif self.participation_score >= 6.0:
+            self.engagement_level = 'HIGH'
+        elif self.participation_score >= 4.0:
+            self.engagement_level = 'MODERATE'
+        else:
+            self.engagement_level = 'LOW'
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "meeting_activity_id": self.meeting_activity_id,
+            "member": {
+                "id": self.member.id if self.member else None,
+                "name": self.member.name if self.member else None
+            },
+            "participation_type": self.participation_type,
+            "amount": float(self.amount),
+            "status": self.status,
+            "notes": self.notes,
+            "challenges": self.challenges,
+            "participation_time": self.participation_time.isoformat() if self.participation_time else None,
+            "quality_metrics": {
+                "participation_score": float(self.participation_score),
+                "engagement_level": self.engagement_level
+            },
+            "has_proof_document": self.has_proof_document,
+            "recorded_by": self.recorder.username if self.recorder else None,
+            "recorded_date": self.recorded_date.isoformat() if self.recorded_date else None
+        }
+
+
+class ActivityDocument(db.Model):
+    """Document attachments for meeting activities and member participation proof"""
+
+    __tablename__ = "activity_documents"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # Document can be attached to either an activity or member participation
+    meeting_activity_id = db.Column(db.Integer, db.ForeignKey('meeting_activities.id'), nullable=True)
+    member_participation_id = db.Column(db.Integer, db.ForeignKey('member_activity_participation.id'), nullable=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meetings.id'), nullable=False)  # Always link to meeting for organization
+
+    # Document details
+    document_type = db.Column(db.String(50), nullable=False)  # HANDWRITTEN_RECORD, ATTENDANCE_SHEET, SAVINGS_RECEIPT, LOAN_DOCUMENT, PHOTO_PROOF, SIGNATURE_SHEET
+    file_name = db.Column(db.String(255), nullable=False)
+    original_file_name = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_size = db.Column(db.Integer, nullable=False)  # Size in bytes
+    file_type = db.Column(db.String(50), nullable=False)  # pdf, docx, pptx, jpg, png, etc.
+    mime_type = db.Column(db.String(100), nullable=False)
+
+    # Document metadata
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+
+    # Document verification
+    is_verified = db.Column(db.Boolean, default=False, nullable=False)
+    verified_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    verified_date = db.Column(db.DateTime, nullable=True)
+    verification_notes = db.Column(db.Text, nullable=True)
+
+    # Access control
+    is_public = db.Column(db.Boolean, default=False, nullable=False)  # Can all group members see this?
+    access_level = db.Column(db.String(20), default='GROUP', nullable=False)  # GROUP, LEADERSHIP, ADMIN
+
+    # Audit fields
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    upload_date = db.Column(db.DateTime, default=func.now(), nullable=False)
+
+    # Relationships
+    activity = db.relationship('MeetingActivity', backref='documents')
+    member_participation = db.relationship('MemberActivityParticipation', backref='documents')
+    meeting = db.relationship('Meeting', backref='activity_documents')
+    uploader = db.relationship('User', foreign_keys=[uploaded_by], backref='uploaded_activity_documents')
+    verifier = db.relationship('User', foreign_keys=[verified_by], backref='verified_activity_documents')
+
+    # Constraints
+    __table_args__ = (
+        db.CheckConstraint("document_type IN ('HANDWRITTEN_RECORD', 'ATTENDANCE_SHEET', 'SAVINGS_RECEIPT', 'LOAN_DOCUMENT', 'PHOTO_PROOF', 'SIGNATURE_SHEET', 'MEETING_MINUTES', 'CONSTITUTION', 'OTHER')", name='check_valid_document_type'),
+        db.CheckConstraint("access_level IN ('GROUP', 'LEADERSHIP', 'ADMIN')", name='check_valid_access_level'),
+        db.CheckConstraint("file_type IN ('pdf', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'bmp')", name='check_valid_file_type'),
+        db.CheckConstraint('file_size > 0', name='check_positive_file_size'),
+        # At least one of activity or member participation must be specified
+        db.CheckConstraint('meeting_activity_id IS NOT NULL OR member_participation_id IS NOT NULL', name='check_document_attachment'),
+    )
+
+    def __init__(self, meeting_id, document_type, file_name, original_file_name, file_path, file_size, file_type, mime_type, title, uploaded_by):
+        self.meeting_id = meeting_id
+        self.document_type = document_type
+        self.file_name = file_name
+        self.original_file_name = original_file_name
+        self.file_path = file_path
+        self.file_size = file_size
+        self.file_type = file_type
+        self.mime_type = mime_type
+        self.title = title
+        self.uploaded_by = uploaded_by
+
+    def get_file_size_formatted(self):
+        """Return human-readable file size"""
+        size = self.file_size
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} TB"
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "meeting_id": self.meeting_id,
+            "meeting_activity_id": self.meeting_activity_id,
+            "member_participation_id": self.member_participation_id,
+            "document_type": self.document_type,
+            "file_info": {
+                "file_name": self.file_name,
+                "original_file_name": self.original_file_name,
+                "file_path": self.file_path,
+                "file_size": self.file_size,
+                "file_size_formatted": self.get_file_size_formatted(),
+                "file_type": self.file_type,
+                "mime_type": self.mime_type
+            },
+            "metadata": {
+                "title": self.title,
+                "description": self.description
+            },
+            "verification": {
+                "is_verified": self.is_verified,
+                "verified_by": self.verifier.username if self.verifier else None,
+                "verified_date": self.verified_date.isoformat() if self.verified_date else None,
+                "verification_notes": self.verification_notes
+            },
+            "access": {
+                "is_public": self.is_public,
+                "access_level": self.access_level
+            },
+            "uploaded_by": self.uploader.username if self.uploader else None,
+            "upload_date": self.upload_date.isoformat() if self.upload_date else None
+        }
+
+
+class ActivityTransaction(db.Model):
+    """Link meeting activities to actual financial transactions"""
+
+    __tablename__ = "activity_transactions"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    meeting_activity_id = db.Column(db.Integer, db.ForeignKey('meeting_activities.id'), nullable=False)
+
+    # Transaction details - we'll link to existing transaction models
+    transaction_type = db.Column(db.String(50), nullable=False)  # SAVINGS_CONTRIBUTION, LOAN_DISBURSEMENT, LOAN_REPAYMENT, FINE_PAYMENT
+    amount = db.Column(db.Numeric(12, 2), nullable=False)
+
+    # Links to existing transaction tables
+    group_transaction_id = db.Column(db.Integer, nullable=True)  # Link to GroupTransaction if applicable
+    member_saving_id = db.Column(db.Integer, nullable=True)     # Link to MemberSaving if applicable
+    group_loan_id = db.Column(db.Integer, nullable=True)        # Link to GroupLoan if applicable
+    member_fine_id = db.Column(db.Integer, nullable=True)       # Link to MemberFine if applicable
+
+    # Transaction metadata
+    description = db.Column(db.Text, nullable=True)
+    reference_number = db.Column(db.String(100), nullable=True)
+
+    # Audit fields
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_date = db.Column(db.DateTime, default=func.now(), nullable=False)
+
+    # Relationships
+    activity = db.relationship('MeetingActivity', backref='transactions')
+    creator = db.relationship('User', backref='created_activity_transactions')
+
+    # Constraints
+    __table_args__ = (
+        db.CheckConstraint("transaction_type IN ('SAVINGS_CONTRIBUTION', 'LOAN_DISBURSEMENT', 'LOAN_REPAYMENT', 'FINE_PAYMENT', 'WITHDRAWAL', 'OTHER')", name='check_valid_transaction_type'),
+        db.CheckConstraint('amount > 0', name='check_positive_amount'),
+        # At least one transaction link must be specified
+        db.CheckConstraint('group_transaction_id IS NOT NULL OR member_saving_id IS NOT NULL OR group_loan_id IS NOT NULL OR member_fine_id IS NOT NULL', name='check_transaction_link'),
+    )
+
+    def __init__(self, meeting_activity_id, transaction_type, amount, created_by):
+        self.meeting_activity_id = meeting_activity_id
+        self.transaction_type = transaction_type
+        self.amount = amount
+        self.created_by = created_by
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "meeting_activity_id": self.meeting_activity_id,
+            "transaction_type": self.transaction_type,
+            "amount": float(self.amount),
+            "description": self.description,
+            "reference_number": self.reference_number,
+            "linked_records": {
+                "group_transaction_id": self.group_transaction_id,
+                "member_saving_id": self.member_saving_id,
+                "group_loan_id": self.group_loan_id,
+                "member_fine_id": self.member_fine_id
+            },
+            "created_by": self.creator.username if self.creator else None,
+            "created_date": self.created_date.isoformat() if self.created_date else None
         }

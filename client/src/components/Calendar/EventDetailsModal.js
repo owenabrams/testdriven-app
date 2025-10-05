@@ -33,10 +33,24 @@ import {
   LocationOn as LocationIcon,
   Phone as PhoneIcon,
   Close as CloseIcon,
-  Visibility as VisibilityIcon
+  Visibility as VisibilityIcon,
+  OpenInNew as OpenInNewIcon,
+  Schedule as ScheduleIcon,
+  AttachMoney as AttachMoneyIcon,
+  Assignment as AssignmentIcon
 } from '@mui/icons-material';
 
-const EventDetailsModal = ({ open, onClose, event, onMemberClick, onTransactionClick, onGroupClick }) => {
+const EventDetailsModal = ({
+  open,
+  onClose,
+  event,
+  onMemberClick,
+  onTransactionClick,
+  onGroupClick,
+  onMeetingClick,
+  onActivityClick,
+  onDocumentClick
+}) => {
   const [expandedSections, setExpandedSections] = useState({
     details: true,
     members: false,
@@ -386,7 +400,59 @@ const EventDetailsModal = ({ open, onClose, event, onMemberClick, onTransactionC
       </DialogContent>
       
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Box display="flex" justifyContent="space-between" width="100%">
+          <Box display="flex" gap={1}>
+            {/* Navigation buttons based on event type */}
+            {(event.event_type === 'MEETING' || event.meeting_id || event.title?.toLowerCase().includes('meeting')) && (
+              <Button
+                variant="outlined"
+                startIcon={<OpenInNewIcon />}
+                onClick={() => {
+                  const meetingId = event.meeting_id || event.related_meeting_id;
+                  if (meetingId && meetingId !== 'undefined' && meetingId !== 'null') {
+                    onMeetingClick && onMeetingClick(meetingId);
+                  } else {
+                    // For now, navigate to a test meeting or show message
+                    console.log('No specific meeting ID, navigating to test meeting');
+                    onMeetingClick && onMeetingClick(45); // Test meeting ID
+                  }
+                }}
+              >
+                View Meeting Details
+              </Button>
+            )}
+            {event.event_type === 'TRANSACTION' && (
+              <Button
+                variant="outlined"
+                startIcon={<AttachMoneyIcon />}
+                onClick={() => onTransactionClick && onTransactionClick(event.related_transaction_id)}
+              >
+                Transaction Details
+              </Button>
+            )}
+            {event.event_type === 'LOAN' && (
+              <Button
+                variant="outlined"
+                startIcon={<AssignmentIcon />}
+                onClick={() => onTransactionClick && onTransactionClick(event.related_loan_id)}
+              >
+                Loan Details
+              </Button>
+            )}
+            {event.group_id && (
+              <Button
+                variant="outlined"
+                startIcon={<GroupIcon />}
+                onClick={() => onGroupClick && onGroupClick(event.group_id)}
+              >
+                View Group
+              </Button>
+            )}
+          </Box>
+          <Button onClick={onClose} variant="contained">
+            Close
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

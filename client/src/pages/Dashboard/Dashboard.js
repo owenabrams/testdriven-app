@@ -23,39 +23,40 @@ import {
   ArrowForward,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { savingsGroupsAPI } from '../../services/api';
 import { campaignsAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUserRole } from '../../hooks/useUserRole';
 import StatsCard from '../../components/Dashboard/StatsCard';
 import RecentActivity from '../../components/Dashboard/RecentActivity';
 import QuickActions from '../../components/Dashboard/QuickActions';
+import MeetingScheduler from '../../components/Dashboard/MeetingScheduler';
+import SystemOverview from '../../components/Dashboard/SystemOverview';
+import MemberDashboard from '../../components/Dashboard/MemberDashboard';
 import ProfessionalLoader from '../../components/Common/ProfessionalLoader';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { userRole, hasPermission, getRoleName, isMember } = useUserRole();
 
   // Fetch dashboard data
-  const { data: groups, isLoading: groupsLoading, error: groupsError } = useQuery(
-    'dashboard-groups',
-    () => savingsGroupsAPI.getGroups(),
-    {
-      select: (response) => response.data?.data || [],
-      retry: 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    }
-  );
+  const { data: groups, isLoading: groupsLoading, error: groupsError } = useQuery({
+    queryKey: ['dashboard-groups'],
+    queryFn: () => savingsGroupsAPI.getGroups(),
+    select: (response) => response.data?.groups || [],
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-  const { data: campaigns, isLoading: campaignsLoading, error: campaignsError } = useQuery(
-    'dashboard-campaigns',
-    () => campaignsAPI.getCampaigns(),
-    {
-      select: (response) => response.data?.data || [],
-      retry: 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    }
-  );
+  const { data: campaigns, isLoading: campaignsLoading, error: campaignsError } = useQuery({
+    queryKey: ['dashboard-campaigns'],
+    queryFn: () => campaignsAPI.getCampaigns(),
+    select: (response) => response.data?.campaigns || [],
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   if (groupsLoading || campaignsLoading) {
     return (
@@ -93,14 +94,14 @@ export default function Dashboard() {
   const totalGroups = (groups && Array.isArray(groups)) ? groups.length : 0;
   const activeCampaigns = (campaigns && Array.isArray(campaigns)) ? campaigns.length : 0;
   
-  // Calculate total savings across all groups
+  // Calculate total savings across all groups (using our real API data structure)
   const totalSavings = (groups && Array.isArray(groups)) ? groups.reduce((sum, group) => {
-    return sum + (group.total_balance || 0);
+    return sum + (group.savings_balance || 0);
   }, 0) : 0;
 
-  // Calculate active loans
+  // Calculate active loans (using our real API data structure)
   const activeLoans = (groups && Array.isArray(groups)) ? groups.reduce((sum, group) => {
-    return sum + (group.active_loans_count || 0);
+    return sum + (group.loan_fund_balance || 0);
   }, 0) : 0;
 
   const stats = [
@@ -134,6 +135,11 @@ export default function Dashboard() {
     },
   ];
 
+  // Show member-specific dashboard for regular members
+  if (isMember) {
+    return <MemberDashboard />;
+  }
+
   return (
     <Box>
       {/* Welcome Section */}
@@ -147,10 +153,13 @@ export default function Dashboard() {
           Welcome back, {user?.username}!
         </Typography>
         <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-          Enhanced Savings Groups Platform - Empowering Financial Inclusion
+          {getRoleName()} Dashboard - Enhanced Savings Groups Platform
         </Typography>
         <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
-          Here's what's happening with your savings groups today.
+          {hasPermission('canViewSystemReports')
+            ? 'Monitor system performance and manage operations.'
+            : 'Manage your group activities and member engagement.'
+          }
         </Typography>
       </Box>
 
@@ -164,8 +173,15 @@ export default function Dashboard() {
       </Grid>
 
       <Grid container spacing={3}>
+        {/* Meeting Scheduler - Only for users who can schedule meetings */}
+        {hasPermission('canScheduleMeetings') && (
+          <Grid item xs={12} md={6}>
+            <MeetingScheduler />
+          </Grid>
+        )}
+
         {/* Quick Actions */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={hasPermission('canScheduleMeetings') ? 6 : 12}>
           <QuickActions />
         </Grid>
 
@@ -198,7 +214,7 @@ export default function Dashboard() {
                     </ListItemAvatar>
                     <ListItemText
                       primary={group.name}
-                      secondary={`${group.member_count || 0} members • UGX ${(group.total_balance || 0).toLocaleString()}`}
+                      secondary={`${group.members_count || 0} members • UGX ${(group.savings_balance || 0).toLocaleString()}`}
                     />
                   </ListItem>
                 )) : []}
@@ -278,6 +294,13 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* System Overview - Only for admins */}
+        {hasPermission('canViewSystemReports') && (
+          <Grid item xs={12}>
+            <SystemOverview />
+          </Grid>
+        )}
 
         {/* Recent Activity */}
         <Grid item xs={12}>

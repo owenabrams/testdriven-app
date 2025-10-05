@@ -1,0 +1,34 @@
+# 🐌 SLOW INTERNET OPTIMIZED DOCKER COMPOSE
+# Minimal setup for slow internet connections
+# Uses lightweight base images and local development mode
+
+version: '3.8'
+
+services:
+  # Database only - lightweight and essential
+  db:
+    image: postgres:13-alpine  # Much smaller than postgres:13
+    environment:
+      - POSTGRES_DB=testdriven_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data_local:
+
+# Instructions for slow internet:
+# 1. Run: docker-compose -f docker-compose.local.yml up -d
+# 2. This only starts PostgreSQL database
+# 3. Run backend locally: cd services/users && python manage.py run
+# 4. Run frontend locally: cd client && npm start
+# 5. Enhanced Meeting Activities will work with local development

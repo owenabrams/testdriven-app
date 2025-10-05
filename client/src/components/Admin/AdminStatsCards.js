@@ -16,18 +16,18 @@ import {
   TrendingUp,
   Security,
 } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { savingsGroupsAPI } from '../../services/api';
 
 export default function AdminStatsCards() {
   // Fetch admin statistics
-  const { data: groups } = useQuery(
-    'admin-groups-stats',
-    () => savingsGroupsAPI.getGroups(),
-    {
+  const { data: groups } = useQuery({
+    queryKey: ['admin-groups-stats'],
+    queryFn: () => savingsGroupsAPI.getGroups(),
+    
       select: (response) => response.data?.data || [],
-    }
-  );
+    
+  });
 
   // Calculate statistics with safety checks
   const safeGroups = Array.isArray(groups) ? groups : [];

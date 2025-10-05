@@ -27,7 +27,7 @@ import {
 } from '@mui/material';
 import { AccountBalance, CheckCircle, Warning } from '@mui/icons-material';
 import { useForm } from 'react-hook-form';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { loansAPI } from '../../services/api';
 
 const steps = ['Eligibility Check', 'Application Details', 'Review & Submit'];

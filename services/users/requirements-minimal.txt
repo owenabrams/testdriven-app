@@ -1,0 +1,9 @@
+# Minimal requirements for Enhanced Meeting Activities to work
+# Core Flask dependencies only
+Flask>=3.0.0
+Flask-SQLAlchemy>=3.0.0
+Flask-Migrate>=4.0.0
+Flask-CORS>=3.0.0
+psycopg2-binary>=2.9.0
+python-dotenv>=0.19.0
+Werkzeug>=2.0.0

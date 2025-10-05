@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Use frontend proxy for local development, environment variable for production
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+// Use our real microfinance API backend
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 export const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -36,24 +36,32 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Authentication API
+export const authAPI = {
+  login: (email, password) => apiClient.post('/auth/login', { email, password }),
+  register: (userData) => apiClient.post('/auth/register', userData),
+  getStatus: () => apiClient.get('/auth/status'),
+  logout: () => apiClient.post('/auth/logout'),
+};
+
 // API service functions
 export const savingsGroupsAPI = {
-  // Groups
-  getGroups: () => apiClient.get('/savings-groups'),
-  getGroup: (id) => apiClient.get(`/savings-groups/${id}`),
-  createGroup: (data) => apiClient.post('/savings-groups', data),
-  updateGroup: (id, data) => apiClient.put(`/savings-groups/${id}`, data),
-  deleteGroup: (id) => apiClient.delete(`/savings-groups/${id}`),
+  // Groups - Updated to match our real API endpoints (with trailing slashes)
+  getGroups: () => apiClient.get('/groups/'),
+  getGroup: (id) => apiClient.get(`/groups/${id}`),
+  createGroup: (data) => apiClient.post('/groups/', data),
+  updateGroup: (id, data) => apiClient.put(`/groups/${id}`, data),
+  deleteGroup: (id) => apiClient.delete(`/groups/${id}`),
 
-  // Group Members
-  getGroupMembers: (groupId) => apiClient.get(`/savings-groups/${groupId}/members`),
-  addMember: (groupId, data) => apiClient.post(`/savings-groups/${groupId}/members`, data),
-  updateMember: (groupId, memberId, data) => apiClient.put(`/savings-groups/${groupId}/members/${memberId}`, data),
-  removeMember: (groupId, memberId) => apiClient.delete(`/savings-groups/${groupId}/members/${memberId}`),
+  // Group Members - Updated to match our real API
+  getGroupMembers: (groupId) => apiClient.get(`/groups/${groupId}/members`),
+  addMember: (groupId, data) => apiClient.post(`/groups/${groupId}/members`, data),
+  updateMember: (groupId, memberId, data) => apiClient.put(`/groups/${groupId}/members/${memberId}`, data),
+  removeMember: (groupId, memberId) => apiClient.delete(`/groups/${groupId}/members/${memberId}`),
 
-  // Savings
-  recordSaving: (groupId, memberId, data) => apiClient.post(`/savings-groups/${groupId}/members/${memberId}/savings`, data),
-  getMemberSavings: (groupId, memberId) => apiClient.get(`/savings-groups/${groupId}/members/${memberId}/savings`),
+  // Savings - Updated to match our real API
+  recordSaving: (groupId, memberId, data) => apiClient.post(`/groups/${groupId}/members/${memberId}/savings`, data),
+  getMemberSavings: (groupId, memberId) => apiClient.get(`/groups/${groupId}/members/${memberId}/savings`),
 
   // Admin Functions
   updateMember: (groupId, memberId, data) => apiClient.put(`/savings-groups/${groupId}/members/${memberId}`, data),
@@ -85,8 +93,49 @@ export const savingsGroupsAPI = {
   getTargetCampaigns: (groupId) => apiClient.get(`/savings-groups/${groupId}/target-campaigns`),
 
   // Member specific endpoints
-  getMembers: (groupId) => apiClient.get(`/savings-groups/${groupId}/members`),
-  getMember: (groupId, memberId) => apiClient.get(`/savings-groups/${groupId}/members/${memberId}`),
+  getMembers: (groupId) => apiClient.get(`/groups/${groupId}/members`),
+  getMember: (groupId, memberId) => apiClient.get(`/groups/${groupId}/members/${memberId}`),
+};
+
+// Users API
+export const usersAPI = {
+  getUsers: () => apiClient.get('/users'),
+  getUser: (id) => apiClient.get(`/users/${id}`),
+  createUser: (data) => apiClient.post('/users', data),
+  updateUser: (id, data) => apiClient.put(`/users/${id}`, data),
+  deleteUser: (id) => apiClient.delete(`/users/${id}`),
+};
+
+// Meetings API - Our new meeting scheduler system
+export const meetingsAPI = {
+  getMeetings: (groupId) => apiClient.get(`/meetings?group_id=${groupId}`),
+  getMeeting: (id) => apiClient.get(`/meetings/${id}`),
+  createMeeting: (data) => apiClient.post('/meetings', data),
+  updateMeeting: (id, data) => apiClient.put(`/meetings/${id}`, data),
+  deleteMeeting: (id) => apiClient.delete(`/meetings/${id}`),
+
+  // Meeting Scheduler endpoints
+  getCalendar: (params = {}) => apiClient.get('/scheduler/calendar', { params }),
+  scheduleMeeting: (data) => apiClient.post('/scheduler/schedule-meeting', data),
+  getMeetingTemplates: (params = {}) => apiClient.get('/scheduler/meeting-templates', { params }),
+  getMeetingInvitations: (meetingId) => apiClient.get(`/scheduler/meetings/${meetingId}/invitations`),
+  respondToInvitation: (invitationId, response) => apiClient.post(`/scheduler/invitations/${invitationId}/respond`, response),
+  getPlannedActivities: (meetingId) => apiClient.get(`/scheduler/meetings/${meetingId}/planned-activities`),
+};
+
+// Reports API - Our comprehensive reporting system
+export const reportsAPI = {
+  getSystemOverview: () => apiClient.get('/reports/system-overview'),
+  getGroupDashboard: (groupId) => apiClient.get(`/reports/group-dashboard/${groupId}`),
+  getAttendanceComparison: () => apiClient.get('/attendance/group-comparison'),
+  getAttendanceSummary: (groupId) => apiClient.get(`/attendance/summary?group_id=${groupId}`),
+};
+
+// Calendar API - Real calendar from activities
+export const calendarAPI = {
+  getEvents: (params = {}) => apiClient.get('/calendar/events', { params }),
+  getFilteredEvents: (params = {}) => apiClient.get('/calendar/filtered', { params }),
+  getFilterOptions: () => apiClient.get('/calendar/filter-options'),
 };
 
 export const campaignsAPI = {

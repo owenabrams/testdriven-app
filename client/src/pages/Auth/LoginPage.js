@@ -29,10 +29,14 @@ function TabPanel({ children, value, index, ...other }) {
 }
 
 export default function LoginPage() {
+  console.log('🔄 LoginPage component loaded - enhanced debugging active');
+
   const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login, register } = useAuth();
+
+  console.log('🔄 LoginPage: useAuth result - login:', typeof login, 'register:', typeof register);
 
   const loginForm = useForm();
   const registerForm = useForm();
@@ -43,22 +47,54 @@ export default function LoginPage() {
   };
 
   const onLogin = async (data) => {
-    console.log('🔐 LoginPage: Starting login process');
+    console.log('🔐 LoginPage: Starting login process with data:', data);
+    console.log('🔐 LoginPage: Form submission - this is from the FORM SUBMIT');
+    console.log('🔐 LoginPage: login function type:', typeof login);
+    console.log('🔐 LoginPage: login function:', login);
+
+    // Check for form validation errors
+    const formErrors = loginForm.formState.errors;
+    console.log('🔐 LoginPage: Form validation errors:', formErrors);
+
+    if (Object.keys(formErrors).length > 0) {
+      console.log('❌ LoginPage: Form has validation errors, stopping login');
+      return;
+    }
+
     setLoading(true);
     setError('');
-    
-    const result = await login(data.email, data.password);
-    
-    console.log('🔐 LoginPage: Login result:', result);
-    
-    if (!result.success) {
-      setError(result.message);
+
+    try {
+      console.log('🔐 LoginPage: About to call login function...');
+      const result = await login(data.email, data.password);
+      console.log('🔐 LoginPage: Login function completed, result:', result);
+
+      if (!result.success) {
+        setError(result.message);
+        setLoading(false);
+      } else {
+        console.log('✅ LoginPage: Login successful, should redirect now');
+        // Don't set loading to false here - let the auth context handle it
+        // The App component will re-render when user state changes
+      }
+    } catch (error) {
+      console.error('🔐 LoginPage: Login error details:', {
+        error: error,
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      setError('Login failed: ' + error.message);
       setLoading(false);
-    } else {
-      console.log('✅ LoginPage: Login successful, should redirect now');
-      // Don't set loading to false here - let the auth context handle it
-      // The App component will re-render when user state changes
     }
+  };
+
+  const onDebugLogin = async () => {
+    console.log('🧪 DEBUG BUTTON CLICKED - THIS SHOULD ALWAYS APPEAR!');
+    console.log('🧪 Debug: Testing login with admin credentials');
+    console.log('🧪 About to call onLogin function...');
+    await onLogin({ email: 'admin@savingsgroup.com', password: 'admin123' });
+    console.log('🧪 onLogin function call completed');
   };
 
   const onRegister = async (data) => {
@@ -116,7 +152,16 @@ export default function LoginPage() {
             )}
 
             <TabPanel value={tab} index={0}>
-              <Box component="form" onSubmit={loginForm.handleSubmit(onLogin)}>
+              <Box
+                component="form"
+                onSubmit={(e) => {
+                  console.log('🔥 FORM SUBMIT EVENT TRIGGERED!', e);
+                  console.log('🔥 Form data before submission:', loginForm.getValues());
+                  console.log('🔥 Form errors before submission:', loginForm.formState.errors);
+                  console.log('🔥 Form is valid:', loginForm.formState.isValid);
+                  return loginForm.handleSubmit(onLogin)(e);
+                }}
+              >
                 <TextField
                   margin="normal"
                   required
@@ -149,8 +194,43 @@ export default function LoginPage() {
                   variant="contained"
                   sx={{ mt: 3, mb: 2 }}
                   disabled={loading}
+                  onClick={(e) => {
+                    console.log('🔥 SIGN IN BUTTON CLICKED!', e);
+                    console.log('🔥 Button type:', e.target.type);
+                    try {
+                      console.log('🔥 Form values at button click:', loginForm.getValues());
+                      console.log('🔥 Form state:', loginForm.formState);
+                      console.log('🔥 Form errors:', loginForm.formState.errors);
+                    } catch (error) {
+                      console.error('🔥 Error getting form values:', error);
+                    }
+                  }}
                 >
                   {loading ? 'Signing In...' : 'Sign In'}
+                </Button>
+
+                {/* Simple test button */}
+                <Button
+                  fullWidth
+                  variant="text"
+                  sx={{ mb: 1 }}
+                  onClick={() => {
+                    console.log('🔥 SIMPLE TEST BUTTON CLICKED - THIS SHOULD ALWAYS WORK!');
+                    alert('Simple button clicked!');
+                  }}
+                >
+                  🔥 Simple Test Button
+                </Button>
+
+                {/* Debug button for testing */}
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  sx={{ mb: 2 }}
+                  onClick={onDebugLogin}
+                  disabled={loading}
+                >
+                  🧪 Test Admin Login
                 </Button>
               </Box>
             </TabPanel>

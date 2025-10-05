@@ -42,7 +42,7 @@ import {
   Gavel,
   Calculate,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
@@ -136,46 +136,40 @@ export default function GroupMembers({ groupId }) {
   const { register, handleSubmit, reset, formState: { errors }, watch } = useForm();
 
   // Fetch group members
-  const { data: membersData, isLoading, error } = useQuery(
-    ['group-members', groupId],
-    () => groupMembersAPI.getMembers(groupId),
-    {
-      select: (response) => response.data || {},
-      enabled: !!groupId,
-    }
-  );
+  const { data: membersData, isLoading, error } = useQuery({
+    queryKey: ['group-members', groupId],
+    queryFn: () => groupMembersAPI.getMembers(groupId),
+    select: (response) => response.data || {},
+    enabled: !!groupId,
+  });
 
   const members = membersData?.members || [];
 
   // Add member mutation
-  const addMemberMutation = useMutation(
-    (memberData) => groupMembersAPI.addMember(groupId, memberData),
-    {
-      onSuccess: () => {
-        toast.success('Member added successfully');
-        queryClient.invalidateQueries(['group-members', groupId]);
-        handleCloseDialog();
-      },
-      onError: (error) => {
-        toast.error(error.message || 'Failed to add member');
-      },
-    }
-  );
+  const addMemberMutation = useMutation({
+    mutationFn: (memberData) => groupMembersAPI.addMember(groupId, memberData),
+    onSuccess: () => {
+      toast.success('Member added successfully');
+      queryClient.invalidateQueries(['group-members', groupId]);
+      handleCloseDialog();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to add member');
+    },
+  });
 
   // Update member mutation
-  const updateMemberMutation = useMutation(
-    ({ memberId, memberData }) => groupMembersAPI.updateMember(groupId, memberId, memberData),
-    {
-      onSuccess: () => {
-        toast.success('Member updated successfully');
-        queryClient.invalidateQueries(['group-members', groupId]);
-        handleCloseDialog();
-      },
-      onError: (error) => {
-        toast.error(error.message || 'Failed to update member');
-      },
-    }
-  );
+  const updateMemberMutation = useMutation({
+    mutationFn: ({ memberId, memberData }) => groupMembersAPI.updateMember(groupId, memberId, memberData),
+    onSuccess: () => {
+      toast.success('Member updated successfully');
+      queryClient.invalidateQueries(['group-members', groupId]);
+      handleCloseDialog();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to update member');
+    },
+  });
 
   // Remove member mutation
   const removeMemberMutation = useMutation(

@@ -29,49 +29,33 @@ import {
   Notifications as NotificationsIcon,
   AccountCircle,
   Logout,
+  Event as CalendarIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { notificationsAPI } from '../../services/api';
 
 const drawerWidth = 240;
 
-// Role-based menu items for the main application
+// Simplified menu items - show all CRUD functions for our microfinance system
 const getMenuItemsForRole = (user) => {
-  const baseItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'My Profile', icon: <AccountCircle />, path: '/my-profile' },
-  ];
-
-  // Super Admin gets full access
-  if (user?.is_super_admin) {
-    return [
-      ...baseItems,
-      { text: 'System Admin', icon: <AdminIcon />, path: '/admin' },
-      { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-      { text: 'All Groups', icon: <GroupsIcon />, path: '/groups' },
-      { text: 'Campaigns', icon: <CampaignIcon />, path: '/campaigns' },
-      { text: 'Loans', icon: <LoansIcon />, path: '/loans' },
-    ];
-  }
-
-  // Service Admin gets service management access
-  if (user?.admin) {
-    return [
-      ...baseItems,
-      { text: 'Service Admin', icon: <AdminIcon />, path: '/admin' },
-      { text: 'Manage Groups', icon: <GroupsIcon />, path: '/groups' },
-      { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-      { text: 'Campaigns', icon: <CampaignIcon />, path: '/campaigns' },
-    ];
-  }
-
-  // Regular users get basic access
+  // All users get access to the main microfinance features
   return [
-    ...baseItems,
-    { text: 'My Groups', icon: <GroupsIcon />, path: '/groups' },
-    { text: 'Campaigns', icon: <CampaignIcon />, path: '/campaigns' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Groups', icon: <GroupsIcon />, path: '/groups' },
+    { text: 'Members', icon: <AccountCircle />, path: '/members' },
+    { text: 'Meetings', icon: <CalendarIcon />, path: '/meetings' },
+    { text: 'Activities', icon: <CampaignIcon />, path: '/activities' },
+    { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
+    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
+    { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
+    // Admin features for super_admin role
+    ...(user?.role === 'super_admin' || user?.is_super_admin ? [
+      { text: 'System Admin', icon: <AdminIcon />, path: '/admin' },
+      { text: 'Data Export', icon: <AnalyticsIcon />, path: '/export' },
+    ] : []),
   ];
 };
 
@@ -87,19 +71,17 @@ export default function Layout({ children }) {
   
   // Microservice items (always available)
   const microserviceItems = [
-    { text: 'Savings Platform', icon: <AccountBalance />, path: '/savings-groups' },
+    { text: 'Savings Platform', icon: <AccountBalance />, path: '/groups' },
   ];
 
   // Get notifications count
-  const { data: unreadCountData } = useQuery(
-    ['notifications-count', user?.id],
-    () => notificationsAPI.getUnreadCount(user?.id),
-    {
-      select: (response) => response.data.data?.unread_count || 0,
-      refetchInterval: 30000, // Refetch every 30 seconds
-      enabled: !!user?.id,
-    }
-  );
+  const { data: unreadCountData } = useQuery({
+    queryKey: ['notifications-count', user?.id],
+    queryFn: () => notificationsAPI.getUnreadCount(user?.id),
+    select: (response) => response.data?.unread_count || 0,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    enabled: !!user?.id,
+  });
 
   const unreadCount = unreadCountData || 0;
 
@@ -256,6 +238,12 @@ export default function Layout({ children }) {
             <AccountCircle fontSize="small" />
           </ListItemIcon>
           Profile
+        </MenuItem>
+        <MenuItem onClick={() => { handleProfileMenuClose(); navigate('/settings/currency'); }}>
+          <ListItemIcon>
+            <SettingsIcon fontSize="small" />
+          </ListItemIcon>
+          Currency Settings
         </MenuItem>
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>

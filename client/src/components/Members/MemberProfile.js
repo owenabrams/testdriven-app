@@ -28,7 +28,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { savingsGroupsAPI } from '../../services/api';
+import { savingsGroupsAPI, apiClient } from '../../services/api';
 import LoanApplicationForm from '../Loans/LoanApplicationForm';
 import {
   Person,
@@ -93,68 +93,62 @@ export default function MemberProfile() {
         setLoading(true);
         setError(null);
 
-        // First try to get member dashboard data
-        const response = await savingsGroupsAPI.getMemberDashboard(memberId);
+        // Get member data using the correct API endpoint
+        const response = await apiClient.get(`/members/${memberId}`);
 
-        if (response.data.status === 'success') {
-          const data = response.data.data;
+        if (response.data.member) {
+          const member = response.data.member;
           setMemberData({
             id: parseInt(memberId),
-            name: data.member.name,
-            email: data.member.user?.email || 'N/A',
-            phone: data.member.phone || 'N/A',
-            gender: data.member.gender,
-            role: data.member.role,
-            group: data.group,
-            savings: data.savings,
-            recent_transactions: data.recent_transactions,
-            attendance_rate: data.attendance_rate,
-            total_savings: data.total_savings,
-            location: data.member.location || 'N/A',
-            joinDate: data.member.joined_date,
-            isActive: data.member.is_active,
-            groupName: data.group.name,
-            groupId: data.group.id,
+            name: member.name || 'N/A',
+            email: member.user_email || 'N/A',
+            phone: member.phone || 'N/A',
+            gender: member.gender || 'N/A',
+            role: member.role || 'MEMBER',
+            group: { name: member.group_name, id: member.group_id },
+            savings: [],
+            recent_transactions: [],
+            attendance_rate: 0,
+            total_savings: member.share_balance || 0,
+            location: member.location || 'N/A',
+            joinDate: member.join_date || 'N/A',
+            isActive: member.is_active !== false,
+            groupName: member.group_name || 'Unknown Group',
+            groupId: member.group_id,
 
             // Personal Information (using available data, rest will be mock until API provides)
             personalInfo: {
-              dateOfBirth: data.member.date_of_birth || "N/A",
-              nationalId: data.member.national_id || "N/A",
-              maritalStatus: data.member.marital_status || "N/A",
-              occupation: data.member.occupation || "N/A",
-              education: data.member.education || "N/A",
-              nextOfKin: data.member.next_of_kin || "N/A",
-              nextOfKinPhone: data.member.next_of_kin_phone || "N/A",
+              dateOfBirth: member.date_of_birth || "N/A",
+              nationalId: member.national_id || "N/A",
+              maritalStatus: member.marital_status || "N/A",
+              occupation: member.occupation || "N/A",
+              education: member.education || "N/A",
+              nextOfKin: member.next_of_kin || "N/A",
+              nextOfKinPhone: member.next_of_kin_phone || "N/A",
               address: {
-                district: data.member.district || "N/A",
-                parish: data.member.parish || "N/A",
-                village: data.member.village || "N/A",
-                landmark: data.member.landmark || "N/A"
+                district: member.district || "N/A",
+                parish: member.parish || "N/A",
+                village: member.village || "N/A",
+                landmark: member.landmark || "N/A"
               }
             },
 
-            // Financial Summary (using real API data)
+            // Financial Summary (using available data)
             financialSummary: {
-              totalSavings: data.total_savings || 0,
-              personalSavings: data.savings?.find(s => s.saving_type === 'PERSONAL')?.current_balance || 0,
-              ecdFund: data.savings?.find(s => s.saving_type === 'ECD')?.current_balance || 0,
-              socialFund: data.savings?.find(s => s.saving_type === 'SOCIAL')?.current_balance || 0,
-              targetSavings: data.savings?.find(s => s.saving_type === 'TARGET')?.current_balance || 0,
-              totalLoans: 0, // Will be calculated from loan data
-              outstandingLoans: 0, // Will be calculated from loan data
-              totalRepaid: 0, // Will be calculated from loan data
+              totalSavings: member.share_balance || 0,
+              personalSavings: 0,
+              ecdFund: 0,
+              socialFund: 0,
+              targetSavings: 0,
+              totalLoans: member.loan_balance || 0,
+              outstandingLoans: member.loan_balance || 0,
+              totalRepaid: 0,
               creditScore: 85, // Mock for now
-              loanEligibilityAmount: data.total_savings * 5 || 0 // 5x savings rule
+              loanEligibilityAmount: (member.share_balance || 0) * 5 // 5x savings rule
             },
 
-            // Savings History (using real transaction data)
-            savingsHistory: data.recent_transactions?.map(tx => ({
-              id: tx.id,
-              date: tx.processed_date || tx.transaction_date,
-              type: tx.transaction_type,
-              amount: tx.amount,
-              balance: tx.balance_after
-            })) || [],
+            // Savings History (empty for now, will be loaded separately if needed)
+            savingsHistory: [],
 
             // Mock data for features not yet in API
             loanHistory: [

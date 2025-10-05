@@ -13,7 +13,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { useForm } from 'react-hook-form';
-import { useMutation } from 'react-query';
+import { useMutation } from '@tanstack/react-query';
 import { savingsGroupsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -27,25 +27,23 @@ export default function CreateGroupDialog({ open, onClose, onSuccess }) {
   
   const { register, handleSubmit, formState: { errors }, reset, watch } = useForm();
 
-  const createGroupMutation = useMutation(
-    (data) => savingsGroupsAPI.createGroup(data),
-    {
-      onSuccess: (response) => {
-        if (response.data.status === 'success') {
-          toast.success('Savings group created successfully!');
-          reset();
-          onSuccess();
-        } else {
-          setError(response.data.message || 'Failed to create group');
-        }
-      },
-      onError: (error) => {
-        const message = error.response?.data?.message || 'Failed to create group';
-        setError(message);
-        toast.error(message);
-      },
-    }
-  );
+  const createGroupMutation = useMutation({
+    mutationFn: (data) => savingsGroupsAPI.createGroup(data),
+    onSuccess: (response) => {
+      if (response.data.status === 'success') {
+        toast.success('Savings group created successfully!');
+        reset();
+        onSuccess();
+      } else {
+        setError(response.data.message || 'Failed to create group');
+      }
+    },
+    onError: (error) => {
+      const message = error.response?.data?.message || 'Failed to create group';
+      setError(message);
+      toast.error(message);
+    },
+  });
 
   const onSubmit = (data) => {
     setError('');

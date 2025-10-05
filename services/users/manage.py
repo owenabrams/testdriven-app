@@ -2,7 +2,10 @@
 
 import sys
 import unittest
-import coverage
+try:
+    import coverage
+except ImportError:
+    coverage = None
 import logging
 import os
 import click
@@ -19,16 +22,18 @@ from project.aurora_config import aurora_config
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize coverage
-COV = coverage.Coverage(
-    branch=True,
-    include='project/*',
-    omit=[
-        'project/tests/*',
-        'project/config.py',
-    ]
-)
-COV.start()
+# Initialize coverage (optional)
+COV = None
+if coverage:
+    COV = coverage.Coverage(
+        branch=True,
+        include='project/*',
+        omit=[
+            'project/tests/*',
+            'project/config.py',
+        ]
+    )
+    COV.start()
 
 # app, socketio = create_app()  # new
 
@@ -461,12 +466,16 @@ def seed_demo_data_if_empty():
 
 @cli.command('seed_demo_data')
 def seed_demo_data():
-    """Seeds comprehensive demo data for Enhanced Savings Groups."""
+    """Seeds comprehensive demo data for Enhanced Savings Groups with Meeting Activities."""
     from project.api.models import (
         SavingsGroup, GroupMember, SavingType, MemberSaving,
         SavingTransaction, GroupCashbook, MeetingAttendance, MemberFine,
         LoanAssessment, TargetSavingsCampaign, GroupTargetCampaign,
-        MemberCampaignParticipation, CalendarEvent
+        MemberCampaignParticipation, CalendarEvent, Meeting
+    )
+    from project.api.meeting_models import (
+        MeetingActivity, MeetingAgenda, MeetingMinutes,
+        MemberActivityParticipation, ActivityDocument
     )
     from datetime import date, timedelta, datetime
     from decimal import Decimal
@@ -1069,7 +1078,81 @@ def seed_demo_data():
     db.session.add(loan_assessment)
     
     db.session.commit()
-    
+
+    # Enhanced Meeting Activities Demo Data
+    print("🎯 Creating Enhanced Meeting Activities demo data...")
+
+    # Create a demo meeting for Kampala Women's Cooperative
+    demo_meeting = Meeting(
+        group_id=group1.id,
+        meeting_date=date.today() - timedelta(days=7),  # Last week
+        chairperson_id=sarah.id,
+        secretary_id=grace.id,
+        treasurer_id=mary.id,
+        created_by=sarah.id,
+        meeting_type='REGULAR',
+        meeting_number=1,
+        status='COMPLETED',
+        total_members=5,
+        members_present=4,
+        start_time=datetime.now().replace(hour=14, minute=0, second=0, microsecond=0),
+        end_time=datetime.now().replace(hour=16, minute=30, second=0, microsecond=0)
+    )
+    db.session.add(demo_meeting)
+    db.session.flush()  # Get the meeting ID
+
+    # Create meeting activities
+    activities_data = [
+        {
+            'activity_type': 'SAVINGS_COLLECTION',
+            'description': 'Weekly savings collection from all members',
+            'sequence_order': 1,
+            'expected_duration_minutes': 30,
+            'status': 'COMPLETED'
+        },
+        {
+            'activity_type': 'LOAN_DISCUSSION',
+            'description': 'Review loan applications and approve Mary\'s loan request',
+            'sequence_order': 2,
+            'expected_duration_minutes': 45,
+            'status': 'COMPLETED'
+        },
+        {
+            'activity_type': 'FINE_COLLECTION',
+            'description': 'Collect fines for late arrivals and missed meetings',
+            'sequence_order': 3,
+            'expected_duration_minutes': 15,
+            'status': 'COMPLETED'
+        }
+    ]
+
+    for activity_data in activities_data:
+        activity = MeetingActivity(
+            meeting_id=demo_meeting.id,
+            activity_type=activity_data['activity_type'],
+            description=activity_data['description'],
+            sequence_order=activity_data['sequence_order'],
+            expected_duration_minutes=activity_data['expected_duration_minutes'],
+            status=activity_data['status'],
+            created_by=sarah.id
+        )
+        db.session.add(activity)
+        db.session.flush()
+
+        # Add member participation for each activity
+        members = [sarah, mary, grace, alice]  # Jane was absent
+        for member in members:
+            participation = MemberActivityParticipation(
+                activity_id=activity.id,
+                member_id=member.id,
+                participation_status='PARTICIPATED',
+                contribution_amount=Decimal('25000') if activity_data['activity_type'] == 'SAVINGS_COLLECTION' else None,
+                notes=f'{member.username} actively participated in {activity_data["activity_type"].lower().replace("_", " ")}'
+            )
+            db.session.add(participation)
+
+    db.session.commit()
+
     print("✅ Demo data seeding completed successfully!")
     print(f"""
 🎉 ENHANCED DEMO DATA SUMMARY:
@@ -1115,6 +1198,21 @@ def seed_demo_data():
    • Service Admin: Savings groups management + reports
    • Group Officers: Group management + member oversight
    • Group Members: Personal savings + group participation
+
+📋 ENHANCED MEETING ACTIVITIES:
+   • 1 Demo Meeting: Kampala Women's Cooperative (Last Week)
+   • 3 Meeting Activities: Savings Collection, Loan Discussion, Fine Collection
+   • 12 Participation Records: 4 members × 3 activities
+   • Document Upload System: Ready for handwritten records, photos, receipts
+   • Activity Analytics: Real-time progress tracking and reporting
+
+🎯 ENHANCED FEATURES AVAILABLE:
+   • Meeting Activity Tracking: Step-by-step meeting workflow
+   • Document Attachment: Upload proof documents for each activity
+   • Member Participation: Track individual member contributions
+   • Financial Integration: Link activities to actual transactions
+   • Comprehensive Reporting: Activity completion rates and analytics
+   • Role-Based Access: Chairperson, Secretary, Treasurer permissions
     """)
 
 
@@ -1336,6 +1434,9 @@ def test():
 @cli.command()
 def cov():
     """Runs the unit tests with coverage."""
+    if not COV:
+        print("Coverage module not available. Install with: pip install coverage")
+        return
     tests = unittest.TestLoader().discover('project/tests')
     result = unittest.TextTestRunner(verbosity=2).run(tests)
     if result.wasSuccessful():
