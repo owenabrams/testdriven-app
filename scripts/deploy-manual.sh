@@ -27,6 +27,9 @@ get_service_config() {
         "backend")
             echo "testdriven-users-production-service:testdriven-backend:services/users"
             ;;
+        "minimal")
+            echo "testdriven-users-production-service:testdriven-backend:."
+            ;;
         *)
             echo ""
             ;;
@@ -102,7 +105,11 @@ build_and_push_service() {
     
     # Build the Docker image
     cd $build_path
-    docker build -t $ecr_repo:$image_tag .
+    if [ "$service_name" = "minimal" ]; then
+        docker build -f Dockerfile.minimal -t $ecr_repo:$image_tag .
+    else
+        docker build -t $ecr_repo:$image_tag .
+    fi
     docker tag $ecr_repo:$image_tag $full_image_name
     cd - > /dev/null
     
@@ -199,8 +206,9 @@ show_usage() {
     echo ""
     echo "Services:"
     echo "  frontend    Deploy React frontend"
-    echo "  backend     Deploy Flask backend"
-    echo "  all         Deploy both services"
+    echo "  backend     Deploy Flask backend (microservices)"
+    echo "  minimal     Deploy minimal enhanced backend (admin@savingsgroup.com)"
+    echo "  all         Deploy both frontend and backend services"
     echo ""
     echo "Options:"
     echo "  -h, --help     Show this help message"
@@ -228,7 +236,7 @@ main() {
                 verify_only=true
                 shift
                 ;;
-            frontend|backend|all)
+            frontend|backend|minimal|all)
                 service=$1
                 shift
                 ;;

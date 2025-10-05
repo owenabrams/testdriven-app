@@ -4,19 +4,28 @@
 Demonstrates Enhanced Meeting Activities API working with minimal Flask setup
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
+from flask_socketio import SocketIO
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, date, timedelta
 import json
 import os
+import io
+import csv
 from decimal import Decimal
 import hashlib
 import secrets
+import jwt
+from functools import wraps
 
 app = Flask(__name__)
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Password hashing functions
 def hash_password(password):
@@ -35,10 +44,11 @@ def verify_password(password, hashed_password):
     return password_hash.hex() == stored_hash
 
 # Database setup - PostgreSQL
-DB_HOST = 'localhost'
-DB_PORT = 5432
-DB_NAME = 'testdriven_dev'
-DB_USER = os.getenv('USER')
+DB_HOST = os.getenv('DB_HOST', 'localhost')
+DB_PORT = int(os.getenv('DB_PORT', '5432'))
+DB_NAME = os.getenv('DB_NAME', 'testdriven_dev')
+DB_USER = os.getenv('DB_USER', os.getenv('USER'))
+DB_PASSWORD = os.getenv('DB_PASSWORD', '')
 
 def get_db_connection():
     """Get PostgreSQL database connection"""
@@ -48,6 +58,7 @@ def get_db_connection():
             port=DB_PORT,
             database=DB_NAME,
             user=DB_USER,
+            password=DB_PASSWORD,
             cursor_factory=RealDictCursor
         )
         return conn
@@ -72,6 +83,97 @@ def serialize_record(record):
     if record is None:
         return None
     return {key: decimal_to_float(value) for key, value in dict(record).items()}
+
+# Authentication decorators
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if token and token.startswith('Bearer '):
+            token = token[7:]  # Remove 'Bearer ' prefix
+
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 401
+
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            current_user_id = data['user_id']
+        except:
+            return jsonify({'message': 'Token is invalid!'}), 401
+
+        return f(current_user_id, *args, **kwargs)
+    return decorated
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        return f(*args, **kwargs)
+    return decorated
+
+# Basic API Endpoints
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    """Health check endpoint for ALB"""
+    return jsonify({
+        'environment': 'production',
+        'message': 'pong!',
+        'status': 'success',
+        'version': '1.1.0-stable'
+    })
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    """Login endpoint"""
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    # Check for admin credentials
+    if email == 'admin@savingsgroup.com' and password == 'admin123':
+        # Generate JWT token
+        token = jwt.encode({
+            'user_id': 1,
+            'email': email,
+            'role': 'super_admin',
+            'is_super_admin': True,
+            'exp': datetime.utcnow() + timedelta(hours=24)
+        }, app.config['SECRET_KEY'], algorithm='HS256')
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Login successful',
+            'auth_token': token,
+            'user': {
+                'id': 1,
+                'email': email,
+                'role': 'super_admin',
+                'is_super_admin': True,
+                'username': 'admin'
+            }
+        })
+
+    return jsonify({'message': 'Invalid email or password.', 'status': 'fail'}), 401
+
+@app.route('/users', methods=['GET'])
+def get_users():
+    """Get all users"""
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'users': [{
+                'id': 1,
+                'username': 'admin',
+                'email': 'admin@savingsgroup.com',
+                'active': True,
+                'admin': True,
+                'role': 'super_admin',
+                'is_super_admin': True,
+                'managed_services': [],
+                'service_permissions': []
+            }]
+        }
+    })
 
 # Enhanced Meeting Activities API Endpoints
 
@@ -4494,4 +4596,8 @@ if __name__ == '__main__':
     print("   • http://localhost:5001/api/reports/system-overview - System reports")
     print("   • http://localhost:5001/api/reports/group-dashboard/1 - Group dashboard")
     print()
-    socketio.run(app, host='0.0.0.0', port=5001, debug=True)
+    # Use environment variable for port (production uses 5000, local uses 5001)
+    port = int(os.getenv('PORT', '5001'))
+    debug = os.getenv('FLASK_ENV', 'development') != 'production'
+
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug)
